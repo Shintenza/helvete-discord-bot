@@ -1,15 +1,16 @@
-import { Guild, Message, MessageEmbed, TextChannel, User } from 'discord.js';
-import { Queue } from './models/queue_schema';
+import { Guild, Message, MessageEmbed, TextChannel, User, VoiceState } from 'discord.js';
+import { Queue, IQueue } from './models/queue_schema';
 import { connect } from 'mongoose';
 import Client from './client/Client';
 import * as fs from 'fs';
 import stop from './functions/stop';
 import skip from './functions/skip';
-import { SSL_OP_TLS_BLOCK_PADDING_BUG } from 'constants';
 import pause from './functions/pause';
+import Player from './models/player_schema';
 const client: Client = new Client({ partials: ['MESSAGE', 'CHANNEL', 'REACTION'] });
 const prefix = '!';
 const db = process.env.DB_CONNECTION;
+let dbConnected = false;
 if (!db) {
     throw 'chuju dawaj link do bazy';
 }
@@ -20,6 +21,7 @@ connect(db, {
 })
     .then(() => {
         console.log('Database is connected');
+        dbConnected = true;
     })
     .catch(err => {
         console.log(err);
@@ -39,12 +41,12 @@ client.on('ready', async () => {
     }
 });
 client.on('guildCreate', (guild: Guild) => {
+    if(!dbConnected) return;
     const infoChannel: TextChannel = guild.channels.cache
         .filter(
-            channel =>
-                channel
-                    .permissionsFor(client.user as User)
-                    ?.has('SEND_MESSAGES') as boolean
+            channel => channel
+                .permissionsFor(client.user as User)
+                ?.has('SEND_MESSAGES') as boolean
         )
         .filter(channel => channel.type === 'text')
         .first() as TextChannel;
@@ -55,6 +57,52 @@ client.on('guildCreate', (guild: Guild) => {
         );
     infoChannel.send(helloMessage);
 });
+
+
+// updates bot's voiceChannelId inside database
+client.on("voiceStateUpdate", async (oldState: VoiceState, newState:VoiceState)=>{
+    if ( oldState.channelID === null || typeof oldState.channelID == 'undefined') return;
+    if (newState.id !== client.user?.id) return;
+    
+    
+    if (!newState.channel) {
+        const voiceConnection = newState.guild!.me!.voice;
+        await Queue.updateOne({guildId: newState.guild.id}, {
+            //@ts-ignore
+            $unset: { voiceChannelId:1 },
+            queue: []
+        });
+        await Queue.findOne({guildId: newState.guild.id}, async (err: Error, serverQueue: IQueue)=>{
+            if(serverQueue){
+                const textChannel: TextChannel | undefined = newState.guild.channels.cache.get(
+                    serverQueue.textChannelId
+                ) as TextChannel;
+                if(!textChannel) return;
+                const playerEmbedMessage:Message | undefined = await textChannel.messages.fetch(serverQueue.playerMessageId)
+                    .catch(err=>undefined)
+                if(!playerEmbedMessage) return;
+                playerEmbedMessage.edit(new Player());
+
+                const queueEmbedMessage = await textChannel.messages.fetch(
+                    serverQueue.queueTextMessageId
+                ).catch(err=>undefined)
+                if(!queueEmbedMessage) return;
+                queueEmbedMessage.delete();
+            }   
+        })
+        voiceConnection.connection?.dispatcher.end();
+        return;
+    }
+    
+    const serverQueue = await Queue.findOne({guildId: newState.guild.id});
+    if (!serverQueue) return;
+
+    // when the bot is moved lines below update his voice channel inside databae
+
+    serverQueue.voiceChannelId = newState.channel.id;
+    return await serverQueue.save();
+})
+
 
 client.on('message', async (message: Message) => {
     if (message.author.bot) return;
