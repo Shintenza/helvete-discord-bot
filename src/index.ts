@@ -3,7 +3,11 @@ import { Queue } from './models/queue_schema';
 import { connect } from 'mongoose';
 import Client from './client/Client';
 import * as fs from 'fs';
-const client: Client = new Client();
+import stop from './functions/stop';
+import skip from './functions/skip';
+import { SSL_OP_TLS_BLOCK_PADDING_BUG } from 'constants';
+import pause from './functions/pause';
+const client: Client = new Client({ partials: ['MESSAGE', 'CHANNEL', 'REACTION'] });
 const prefix = '!';
 const db = process.env.DB_CONNECTION;
 if (!db) {
@@ -78,5 +82,26 @@ client.on('message', async (message: Message) => {
         }
     }
 });
+
+client.on("messageReactionAdd", async (reaction, user)=>{
+    if(user.bot) return;
+    if(!reaction.message.guild) return;
+    const serverQueue = await Queue.findOne({guildId: reaction.message.guild.id});
+    if(!serverQueue) return;
+    if(reaction.message.id != serverQueue.playerMessageId) return;
+    if(reaction.emoji.name=="⏹️"){
+        console.log("stop");
+        stop(reaction.message.channel as TextChannel, user as User);
+    } else if(reaction.emoji.name=="⏭️"){
+        console.log("skip");
+        skip(reaction.message.channel as TextChannel, user as User);
+    } else if(reaction.emoji.name=="⏯️"){
+        console.log("pause");
+        pause(reaction.message.channel as TextChannel, user as User);
+    }
+    reaction.users.remove(user as User);
+})
+
+
 
 client.start();
