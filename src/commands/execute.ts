@@ -20,9 +20,6 @@ const initPlay: CommandOptions = {
     name: 'play',
     execute: async (message: Message, args, client) => {
         if(!message.guild) return;
-        const prefix = process.env.PREFIX;
-        if(!prefix) throw "u have to set the env variables";
-        if(message.content.startsWith(prefix)) return;
         const queue: IQueue | null = await Queue.findOne({
             guildId: message.guild!.id,
         });
