@@ -5,8 +5,10 @@ import Client from './client/Client';
 import * as fs from 'fs';
 import stop from './functions/stop';
 import skip from './functions/skip';
+import shuffle from './functions/shuffle';
 import pause from './functions/pause';
 import Player from './models/player_schema';
+import loop from './functions/loop';
 const client: Client = new Client({ partials: ['MESSAGE', 'CHANNEL', 'REACTION'] });
 const prefix = '!';
 const db = process.env.DB_CONNECTION;
@@ -26,6 +28,15 @@ connect(db, {
     .catch(err => {
         console.log(err);
     });
+
+
+
+
+const usersMap: Map<string, any> = new Map();
+const LIMIT = 7;
+const DIFF = 5000;
+const TIME = 1000;
+
 
 client.on('ready', async () => {
     console.log('I am ready to pop');
@@ -108,6 +119,52 @@ client.on('message', async (message: Message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
 
+    if(usersMap.has(message.author.id)) {
+        const userData = usersMap.get(message.author.id);
+        const { lastMessage, timer } = userData;
+        const difference = message.createdTimestamp - lastMessage.createdTimestamp;
+        let msgCount = userData.msgCount;
+        console.log(difference);
+
+        if(difference > DIFF) {
+            clearTimeout(timer);
+            console.log('Cleared Timeout');
+            userData.msgCount = 1;
+            userData.lastMessage = message;
+            userData.timer = setTimeout(() => {
+                usersMap.delete(message.author.id);
+                console.log('Removed from map.')
+            }, TIME);
+            usersMap.set(message.author.id, userData)
+        }
+        else {
+            ++msgCount;
+            if(parseInt(msgCount) === LIMIT) {
+              //@ts-ignore
+              message.channel.bulkDelete(LIMIT);
+              return
+               
+            } else {
+                userData.msgCount = msgCount;
+                usersMap.set(message.author.id, userData);
+            }
+        }
+    }
+    else {
+        let fn = setTimeout(() => {
+            usersMap.delete(message.author.id);
+            console.log('Removed from map.')
+        }, TIME);
+        usersMap.set(message.author.id, {
+            msgCount: 1,
+            lastMessage : message,
+            timer : fn
+        });
+    }
+
+
+
+
     if (!isInitialized) {
         const queue = await Queue.findOne({ guildId: message.guild.id });
         if (queue) isInitialized = true;
@@ -116,6 +173,9 @@ client.on('message', async (message: Message) => {
 
     if (!isInitialized) {
         if (!client.commands.has(command)) return;
+        if (command!="init") {
+            return message.channel.send(`U have to use ${prefix}init first!`);
+        }
         try {
             client.commands.get(command)?.execute(message, args, client);
         } catch (error) {
@@ -123,11 +183,22 @@ client.on('message', async (message: Message) => {
             message.reply('there was an error trying to execute that command!');
         }
     } else {
-        try {
-            client.commands.get('play')?.execute(message, args, client);
-        } catch (err) {
-            return;
+        if(message.content.startsWith(prefix)) {
+            try {
+                await message.delete();
+                client.commands.get(command)?.execute(message, args, client);
+            } catch (error) {
+                console.error(error);
+                message.reply('there was an error trying to execute that command!');
+            }
+        } else {
+            try {
+                client.commands.get('play')?.execute(message, args, client);
+            } catch (err) {
+                return;
+            }
         }
+
     }
 });
 
@@ -146,9 +217,16 @@ client.on("messageReactionAdd", async (reaction, user)=>{
     } else if(reaction.emoji.name=="⏯️"){
         console.log("pause");
         pause(reaction.message.channel as TextChannel, user as User);
+    } else if(reaction.emoji.name=="🔀"){
+        console.log("shuffle");
+        shuffle(reaction.message.channel as TextChannel, user as User);
+    } else if(reaction.emoji.name=="🔄"){
+        console.log("loop");
+        loop(reaction.message.channel as TextChannel, user as User);
     }
     reaction.users.remove(user as User);
 })
+
 
 
 

@@ -6,6 +6,7 @@ import {
     User,
     MessageEmbed,
     GuildMember,
+    Client,
 } from 'discord.js';
 import Player from '../models/player_schema';
 import ytdl = require('ytdl-core');
@@ -17,7 +18,11 @@ import Song from '../models/song_schema';
 
 const initPlay: CommandOptions = {
     name: 'play',
-    execute: async (message: Message) => {
+    execute: async (message: Message, args, client) => {
+        if(!message.guild) return;
+        const prefix = process.env.PREFIX;
+        if(!prefix) throw "u have to set the env variables";
+        if(message.content.startsWith(prefix)) return;
         const queue: IQueue | null = await Queue.findOne({
             guildId: message.guild!.id,
         });
@@ -69,46 +74,54 @@ const initPlay: CommandOptions = {
             title: ytdlInfo.videoDetails.title,
             url: ytdlInfo.videoDetails.video_url,
             thumbnailUrl: ytdlInfo.videoDetails.thumbnails[ytdlInfo.videoDetails.thumbnails.length -1].url,
-            duration: parseInt(ytdlInfo.videoDetails.lengthSeconds),
+            duration: parseInt(ytdlInfo.videoDetails.lengthSeconds)*1000,
             author: ytdlInfo.videoDetails.author,
             requestedBy: message.author.id,
         }
+        const guildId = message.guild.id
         queue.queue.push(song);
         if(queue.queue.length>1) await updateQueueMesg(message.channel as TextChannel, queue);
         queue.voiceChannelId = voiceChannel.id;
         await queue.save();
         const connection: VoiceConnection = await voiceChannel.join();
         if(!connection.dispatcher){
-            play(message);
+            play(guildId, client);
         }
         
     },
 };
 export = initPlay;
 
-const play = async (message: Message): Promise<void> => {
+const play = async (guildId: string, client: Client, previousSong?:Song): Promise<void> => {
     const serverQueue: IQueue | null = await Queue.findOne({
-        guildId: message.guild!.id,
+        guildId: guildId
     });
     if (!serverQueue) return;
-    const textChannel: TextChannel | undefined = message.guild!.channels.cache.get(
+    const guild = client.guilds.cache.get(guildId);
+    if(!guild) return console.log("guild not found");
+    const textChannel: TextChannel | undefined = guild.channels.cache.get(
         serverQueue.textChannelId
     ) as TextChannel;
 
     const playerEmbedMessage:Message | undefined = await textChannel.messages.fetch(serverQueue.playerMessageId)
         .catch(err=>undefined)
-    const voiceConnection = message.guild!.me!.voice;
+    const voiceConnection = guild.me!.voice;
 
     //if playerEmbedMessage is deleted, this if brings it back
     if(!playerEmbedMessage){
-        await message.channel.send(new Player())
+        await textChannel.send(new Player())
             .then(msg=>serverQueue.playerMessageId=msg.id)
         const queueEmbedMessage = await textChannel.messages.fetch(
                 serverQueue.queueTextMessageId
         ).catch(err=> {throw `Ponowne dodanie playera zawiodło: ${err}`})
         await queueEmbedMessage.delete();
         await serverQueue.save();
-        return play(message);
+        return play(guildId, client);
+    }
+    // looping
+    if (serverQueue.isLooped && previousSong) {
+        serverQueue.queue.unshift(previousSong);
+        await serverQueue.save()
     }
     //deletes queueEmbedMessage when queue is empty
     if (serverQueue.queue.length === 0) {
@@ -118,13 +131,14 @@ const play = async (message: Message): Promise<void> => {
     }
     //updates queue 
     if(serverQueue.queue.length>=1) {
-        await updateQueueMesg(message.channel as TextChannel, serverQueue);
+        await updateQueueMesg(textChannel as TextChannel, serverQueue);
+        await serverQueue.save()
     }
     //fetches user that requested a song
     if(!serverQueue.queue[0].requestedBy){
         return
     }
-    const member: GuildMember | undefined = await message.guild?.members.fetch(serverQueue.queue[0].requestedBy);
+    const member: GuildMember | undefined = await guild.members.fetch(serverQueue.queue[0].requestedBy);
     if(!member){
         return
     }
@@ -138,14 +152,17 @@ const play = async (message: Message): Promise<void> => {
     playerEmbedMessage.react("⏯️");
     playerEmbedMessage.react("⏹️");
     playerEmbedMessage.react("⏭️");
+    playerEmbedMessage.react("🔀");
+    playerEmbedMessage.react("🔄");
     //plays a song
+
+    let lastSong: Song = serverQueue.queue[0];
     const dispatcher: StreamDispatcher | undefined = voiceConnection.connection
         ?.play(ytdl(serverQueue.queue[0].url, { filter: 'audioonly' }))
         .on('finish', async () => {
-            //@ts-ignore
-            await Queue.updateOne({ guildId: message.guild!.id }, { $pop: { queue:-1 }});
-            play(message)
-            
+            //@ts-ignore    
+            await Queue.updateOne({ guildId: guildId }, { $pop: { queue:-1 }});
+            play(guildId, client, lastSong);
         });
 };
 

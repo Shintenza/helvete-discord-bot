@@ -1,9 +1,8 @@
-import { Message, TextChannel, User } from "discord.js"
-import { Queue } from "../models/queue_schema"
-import updateQueueMesg from "./updateQueueMsg";
-
-const pause = async (textChannel: TextChannel, user: User)=>{
-    const serverQueue = await Queue.findOne({guildId: textChannel.guild.id})
+import { Queue } from './../models/queue_schema';
+import { TextChannel, User } from 'discord.js'
+ 
+const loop = async (textChannel: TextChannel, user: User)=>{
+    const serverQueue = await Queue.findOne({guildId: textChannel.guild.id});
     if(!serverQueue){
         return textChannel.send("Guild not found").then((msg)=> setTimeout(()=>msg.delete(),4000));
     }
@@ -16,15 +15,13 @@ const pause = async (textChannel: TextChannel, user: User)=>{
             return await textChannel.send("You have to be in the same voice channel").then((msg)=> setTimeout(()=>msg.delete(),4000))
         }
     }
-    if(serverQueue.queue.length === 0 ) return;
-    const voiceConnection = textChannel.guild!.me!.voice;
-    serverQueue.isPaused = !serverQueue.isPaused;
-    if(serverQueue.isPaused){
-        voiceConnection.connection?.dispatcher.pause();
-    }else{
-        voiceConnection.connection?.dispatcher.resume();
+    if(serverQueue.queue.length == 0 ) {
+        return
     }
+    serverQueue.isLooped = !serverQueue.isLooped;
+    let status: string = serverQueue.isLooped ?  "on" : "off";
+    await textChannel.send(`Looping is: ${status}`).then((msg)=> setTimeout(()=>msg.delete(),4000));
     await serverQueue.save();
-    return;
+    return
 }
-export default pause
+export default loop;

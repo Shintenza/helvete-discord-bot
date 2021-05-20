@@ -9,6 +9,7 @@ interface IQueue extends Document {
     queue: any;
     volume: number;
     isPaused: boolean;
+    isLooped: boolean;
 }
 
 const QueueSchema = new Schema({
@@ -41,6 +42,10 @@ const QueueSchema = new Schema({
     },
     isPaused: {
         type:Boolean,
+        default: false
+    },
+    isLooped: {
+        type: Boolean,
         default: false
     }
 });

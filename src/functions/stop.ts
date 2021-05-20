@@ -19,9 +19,9 @@ const stop = async (textChannel: TextChannel, user: User)=>{
     const voiceConnection = textChannel.guild!.me!.voice;
     voiceConnection.connection?.dispatcher.end();
     serverQueue.queue = [];
+    await voiceConnection.channel?.leave();
+    await updateQueueMesg(textChannel, serverQueue);
     await serverQueue.save();
-    voiceConnection.channel?.leave();
-    await updateQueueMesg(textChannel, serverQueue, true);
     return;
 }
 export default stop

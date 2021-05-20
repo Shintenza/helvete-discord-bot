@@ -1,12 +1,13 @@
 import {Message, MessageEmbed, TextChannel} from 'discord.js'
 import { IQueue } from '../models/queue_schema'
+import durationHandler from './durationHandler'
 
 const updateQueueMesg = async (channel:TextChannel, serverQueue: IQueue, del?: boolean)=>{
     if(serverQueue.queue.length > 1){
         let songs = ""
         serverQueue.queue.map((song:any,key:number) =>{
             if(key>=1 && key<=30){
-                songs+=`${song.title}\n`
+                songs+=`${song.title} ${durationHandler(song.duration)}\n`
             }
         })
         const queueEmbed = new MessageEmbed()
@@ -31,7 +32,7 @@ const updateQueueMesg = async (channel:TextChannel, serverQueue: IQueue, del?: b
                 queueEmbedMessage.edit(queueEmbed);
             }
         }
-    }else if (serverQueue.queue.length==1 || del){
+    } else if (serverQueue.queue.length==1 || del){
         const textChannel: TextChannel | undefined = channel.guild!.channels.cache.get(
             serverQueue.textChannelId) as TextChannel;   
             const queueEmbedMessage = await textChannel.messages.fetch(
@@ -41,4 +42,3 @@ const updateQueueMesg = async (channel:TextChannel, serverQueue: IQueue, del?: b
     }
 } 
 export default updateQueueMesg
-
