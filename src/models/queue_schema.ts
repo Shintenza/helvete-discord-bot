@@ -6,6 +6,7 @@ interface IQueue extends Document {
     textChannelId: string;
     voiceChannelId: string;
     queueTextMessageId: string;
+    bannerMessageId: string;
     queue: any;
     volume: number;
     isPaused: boolean;
@@ -19,13 +20,15 @@ const QueueSchema = new Schema({
     },
     playerMessageId: {
         type: String,
-        required: true,
     },
     textChannelId: {
         type: String,
         required: true,
     },
     queueTextMessageId:{
+        type: String
+    },
+    bannerMessageId: {
         type: String
     },
     voiceChannelId: {

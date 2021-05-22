@@ -18,6 +18,7 @@ const pause = async (textChannel: TextChannel, user: User)=>{
     }
     if(serverQueue.queue.length === 0 ) return;
     const voiceConnection = textChannel.guild!.me!.voice;
+    if(!voiceConnection) return;
     serverQueue.isPaused = !serverQueue.isPaused;
     if(serverQueue.isPaused){
         voiceConnection.connection?.dispatcher.pause();

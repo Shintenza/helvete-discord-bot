@@ -10,9 +10,8 @@ const remove: CommandOptions = {
         console.log(args)
         if(!message.guild) return;
         const serverQueue = await Queue.findOne({guildId: message.guild.id});
-        if(!serverQueue){
-            return message.channel.send("Guild not found").then((msg)=> setTimeout(()=>msg.delete(),4000));
-        }
+        if(!serverQueue) return
+        if(serverQueue.textChannelId !== message.channel.id) return 
         const member = await message.guild.members.fetch(message.author);
         if(!member) return;
         if (!member?.voice.channel)

@@ -8,7 +8,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "dev": "nodemon src/index.ts"
-},
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -28,11 +28,11 @@
   "dependencies": {
     "@discordjs/opus": "^0.5.0",
     "discord.js": "^12.5.3",
+    "dotenv": "^8.2.0",
     "ffmpeg-static": "^4.3.0",
     "mongoose": "^5.12.7",
     "ytdl-core": "^4.8.0",
     "ytpl": "^2.2.1",
-    "ytsr": "^3.5.0",
-    "dotenv": "^8.2.0"
+    "ytsr": "^3.5.0"
   }
 }
