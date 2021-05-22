@@ -16,7 +16,8 @@ import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
 import Song from '../models/song_schema';
-const bannerLink = "https://www.overdrive.ie/wp-content/uploads/2014/06/behemoth-logo.jpg";
+const bannerLink = process.env.BANNER_LINK;
+if(!bannerLink) throw "u have to change the banner env"
 const initPlay: CommandOptions = {
     name: 'play',
     execute: async (message: Message, args, client) => {
@@ -70,9 +71,7 @@ const initPlay: CommandOptions = {
                 serverQueue.set(' playerMessageId ', undefined);
                 serverQueue.set(' queueTextMessage ', undefined);
                 await playerEmbedMessage.delete()
-                    .catch(err=> {throw `cannot delete this message code#3: ${err}`});
                 await queueEmbedMessage.delete()
-                    .catch(err=> {throw `cannot delete this message code#4: ${err}`});
                 await textChannel.send(bannerLink)
                     .then(msg=>serverQueue.bannerMessageId=msg.id);
             }
@@ -188,9 +187,7 @@ const play = async (
             serverQueue.set('playerMessageId', undefined);
             serverQueue.set('queueTextMessage', undefined);
             await queueEmbedMessage.delete()
-                .catch(err=> {throw `cannot delete this message code#1: ${err}`});
             await playerEmbedMessage.delete()
-                .catch(err=> {throw `cannot delete this message code#1: ${err}`});
         }
         await textChannel
             .send(new Player())
@@ -208,7 +205,6 @@ const play = async (
             .catch(err => undefined);
         if(queueEmbedMessage){
             await queueEmbedMessage.delete()
-            .then(err=> {throw `cannot delete this message code#5: ${err}`});
         }
         await serverQueue.save();
         return play(guildId, client);

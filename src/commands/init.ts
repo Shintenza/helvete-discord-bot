@@ -1,6 +1,8 @@
 import CommandOptions from '../types';
 import { Guild, Message, MessageEmbed, TextChannel } from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
+const bannerLink = process.env.BANNER_LINK;
+if(!bannerLink) throw "you have to set the banner env variable"
 
 const init: CommandOptions = {
     name: 'init',
@@ -31,6 +33,12 @@ const init: CommandOptions = {
                         );
                     newQueue.guildId = message.guild!.id;
                     newQueue.textChannelId = createdChannel?.id as string;
+                    await createdChannel
+                    .send(bannerLink)
+                    .then(
+                        (message: Message) =>
+                            (newQueue.bannerMessageId = message.id)
+                    );
                     await createdChannel
                         .send(playerEmbed)
                         .then(
