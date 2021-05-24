@@ -15,22 +15,22 @@ const move: CommandOptions = {
         const member = await message.guild.members.fetch(message.author);
         if(!member) return;
         if (!member?.voice.channel)
-                return await message.channel.send('You have to join a voice channel in order to do this').then((msg)=> setTimeout(()=>msg.delete(),4000));
+                return await message.channel.send('You have to join a voice channel in order to do this').then((msg)=> msg.delete({timeout: 4000}));
         if (serverQueue.voiceChannelId){
             if(member.voice.channel?.id !== serverQueue.voiceChannelId){
-                return await message.channel.send("You have to be in the same voice channel").then((msg)=> setTimeout(()=>msg.delete(),4000))
+                return await message.channel.send("You have to be in the same voice channel").then((msg)=> msg.delete({timeout: 4000}));
             }
         }
         if (serverQueue.queue.length <=1) {
-            return await message.channel.send('There is nothing to move').then((msg)=> setTimeout(()=>msg.delete(),4000));
+            return await message.channel.send('There is nothing to move').then((msg)=> msg.delete({timeout: 4000}));
         
         }
         if (parseInt(args[0]) >= serverQueue.queue.length || parseInt(args[0])==0) {
-            return await message.channel.send('You have to type the right number').then((msg)=> setTimeout(()=>msg.delete(),4000));
+            return await message.channel.send('You have to type the right number').then((msg)=> msg.delete({timeout: 4000}));
         } 
         if (args[1]) {
             if (parseInt(args[1]) >= serverQueue.queue.length || parseInt(args[1])==0) {
-                return await message.channel.send('You have to type the right number').then((msg)=> setTimeout(()=>msg.delete(),4000));
+                return await message.channel.send('You have to type the right number').then((msg)=> msg.delete({timeout: 4000}));
             }
             const targetElement: Song = serverQueue.queue[args[0]];
             const position = args[1];

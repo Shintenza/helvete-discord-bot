@@ -20,13 +20,18 @@ import antispam from './functions/antispam';
 const client: Client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
-const prefix = '!';
+
 const db = process.env.DB_CONNECTION;
 let dbConnected = false;
 if (!db) {
     throw 'chuju dawaj link do bazy';
 }
 let isInitialized = false;
+
+
+const prefix = process.env.PREFIX;
+if(!prefix) throw "You have to set up the token in env file!"
+
 connect(db, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -171,7 +176,7 @@ client.on('message', async (message: Message) => {
         const diff = 5000;
         const time = 1000;
         antispam(message, usersMap, time, diff, limit);
-        if (message.content.startsWith(prefix)) {
+        if (message.content.startsWith(prefix) && !message.content.includes("bmp")) {
             try {
                 await message.delete();
                 client.commands.get(command)?.execute(message, args, client);

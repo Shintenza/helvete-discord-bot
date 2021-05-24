@@ -26,6 +26,7 @@ const initPlay: CommandOptions = {
         const serverQueue: IQueue | null = await Queue.findOne({
             guildId: message.guild!.id,
         });
+        const prefix = process.env.PREFIX;
         // general checking
         
         if (!serverQueue) return;
@@ -80,14 +81,20 @@ const initPlay: CommandOptions = {
         //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
         let toPlay: string = '';
         let playListSongs: Array<Song> = [];
-        if (message.content.includes('list')) {
-            const playlist = await ytpl(message.content.split(' ')[0]).catch(
-                err => undefined
-            );
+        if (message.content.includes('list') || (message.content.split(' ')[0]==`${prefix}bmp`) ){
+            let playlist;
+            if (message.content.split(' ')[0] == prefix +"bmp") {
+                console.log("bmp")
+                playlist = await ytpl("https://www.youtube.com/channel/UCzCWehBejA23yEz3zp7jlcg");
+            } else {
+                playlist =  await ytpl(message.content.split(' ')[0]).catch(
+                    err => undefined
+                );
+            }
             if (!playlist) {
                 return await message.channel
                     .send('Playlist not found')
-                    .then(msg => setTimeout(() => msg.delete(), 4000));
+                    .then((msg)=> msg.delete({timeout: 4000}));
             }
             playlist.items.map((element: any) => {
                 playListSongs.push({
@@ -108,7 +115,7 @@ const initPlay: CommandOptions = {
             if (!search) {
                 return message.channel
                     .send('I have found nothing')
-                    .then(msg => setTimeout(() => msg.delete(), 4000));
+                    .then((msg)=> msg.delete({timeout: 4000}));
             }
             //@ts-ignore
             toPlay = search.items[0].url;
@@ -119,7 +126,7 @@ const initPlay: CommandOptions = {
             if (!ytdlInfo)
                 return await message.channel
                     .send("I haven't found that song")
-                    .then(msg => setTimeout(() => msg.delete(), 4000));
+                    .then((msg)=> msg.delete({timeout: 4000}));
             const song: Song = {
                 title: ytdlInfo.videoDetails.title,
                 url: ytdlInfo.videoDetails.video_url,
@@ -137,7 +144,7 @@ const initPlay: CommandOptions = {
             serverQueue.queue.push(...playListSongs);
             message.channel
                 .send('Queue has been updated with the given playlist')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
+                .then((msg)=> msg.delete({timeout: 4000}));
         }
         const guildId = message.guild.id;
         if (serverQueue.queue.length > 1)

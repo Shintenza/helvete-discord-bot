@@ -16,10 +16,10 @@ const init: CommandOptions = {
                     await guild?.channels
                         .create('helvete-beats', { type: 'text' })
                         .then(() =>
-                            message.channel.send('kanał utworzony pomyślnie')
+                            message.channel.send('Channel has been created!')
                         )
                         .catch(() =>
-                            message.channel.send('panie idź pan w chuj')
+                            message.channel.send('I was unable to create a text channel')
                         );
                     const createdChannel: TextChannel = guild.channels.cache.find(
                         channel => channel.name === 'helvete-beats'
