@@ -8,6 +8,26 @@ const loop = async (textChannel: TextChannel, user: User)=>{
     }
     const member = await textChannel.guild.members.fetch(user);
     if(!member) return;
+
+    const role = textChannel.guild.roles.cache.find(
+        role => role.name == 'HelveteDJ'
+    );
+    let isAllowed: boolean = false;
+    if ( member.permissions.has("MANAGE_ROLES") || 
+        member.permissions.has("BAN_MEMBERS") ||
+        member.permissions.has("KICK_MEMBERS")
+        ) {
+        isAllowed = true;
+    }
+    if(role) {
+        if(member.roles.cache.has(role.id)){
+            isAllowed = true;
+        }
+    }
+    if(!isAllowed) {
+        return await textChannel.send('You are not allowed to do this!').then((msg)=> setTimeout(()=>msg.delete(),4000));
+    }
+
     if (!member?.voice.channel)
             return await textChannel.send('You have to join a voice channel in order to do this').then((msg)=> setTimeout(()=>msg.delete(),4000));
     if(serverQueue.voiceChannelId){
