@@ -9,7 +9,7 @@ import {
     Client,
 } from 'discord.js';
 import Player from '../models/player_schema';
-import ytdl = require('ytdl-core');
+import ytdl = require("ytdl-core");
 import ytsr = require('ytsr');
 import ytpl = require('ytpl');
 import CommandOptions from '../types';
@@ -49,11 +49,10 @@ const initPlay: CommandOptions = {
                 .send(errEmbed)
                 .then(msg => setTimeout(() => msg.delete(), 4000));
         }
-        if (serverQueue.voiceChannelId) {
+        if (serverQueue.voiceChannelId && message.guild.me?.voice.channel) {
             if (
                 message.member.voice.channel.id !== serverQueue.voiceChannelId
             ) {
-                await message.delete();
                 return await message.channel
                     .send('You have to be in the same voice channel')
                     .then(msg => setTimeout(() => msg.delete(), 4000));
@@ -120,7 +119,7 @@ const initPlay: CommandOptions = {
             //@ts-ignore
             toPlay = search.items[0].url;
         }
-        let ytdlInfo: ytdl.videoInfo | undefined;
+        let ytdlInfo;
         if (playListSongs.length < 1) {
             ytdlInfo = await ytdl.getInfo(toPlay).catch(err => undefined);
             if (!ytdlInfo)
@@ -261,7 +260,8 @@ const play = async (
 
     let lastSong: Song = serverQueue.queue[0];
     const dispatcher: StreamDispatcher | undefined = voiceConnection.connection
-        ?.play(ytdl(serverQueue.queue[0].url, { filter: 'audioonly' }))
+        //@ts-ignore
+        ?.play(ytdl(serverQueue.queue[0].url, { filter: "audioonly" }))
         .on('finish', async () => {
             //@ts-ignore
             await Queue.updateOne(
