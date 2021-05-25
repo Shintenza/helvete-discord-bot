@@ -26,7 +26,7 @@ let dbConnected = false;
 if (!db) {
     throw 'chuju dawaj link do bazy';
 }
-let isInitialized = false;
+
 
 
 const prefix = process.env.PREFIX;
@@ -139,14 +139,15 @@ let textChannelId = new Map();
 client.on('message', async (message: Message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
+    const isInitialized = new Map();
 
-    if (!isInitialized) {
+    if (!isInitialized.has(message.guild.id)) {
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
-        if (serverQueue) isInitialized = true;
+        if (serverQueue) isInitialized.set(message.guild.id, {});
     }
     const [command, ...args] = message.content.slice(prefix.length).split(/ +/);
 
-    if (!isInitialized) {
+    if (!isInitialized.has(message.guild.id)) {
         if (!client.commands.has(command)) return;
         if (command != 'init') {
             return message.channel.send(`U have to use ${prefix}init first!`);
