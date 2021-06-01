@@ -12,7 +12,6 @@ import Player from '../models/player_schema';
 import ytdl = require('ytdl-core');
 import ytsr = require('ytsr');
 import ytpl = require('ytpl');
-import spotifyUri from 'spotify-uri';
 import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
@@ -21,7 +20,7 @@ const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
 const initPlay: CommandOptions = {
     name: 'play',
-    execute: async (message, args, client, spotifyApp) => {
+    execute: async (message, args, client) => {
         if (!message.guild) return;
         await message.delete();
         const serverQueue: IQueue | null = await Queue.findOne({

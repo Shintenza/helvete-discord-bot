@@ -10,24 +10,20 @@ const np: CommandOptions = {
         if (!message.guild) return;
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
         if (!serverQueue) {
-            return message.channel
+            return await message.channel
                 .send('There is nothing in the queue!')
                 .then(msg => msg.delete({ timeout: 4000 }));
         }
         if (serverQueue.queue.length === 0) {
-            return message.channel
+            return await message.channel
                 .send('There is nothing in the queue!')
                 .then(msg => msg.delete({ timeout: 4000 }));
         }
         if (!message.guild.me?.voice) {
-            return message.channel
+            return await message.channel
                 .send('I am not connected to any voice channel!')
                 .then(msg => msg.delete({ timeout: 4000 }));
         }
-        const member = await message.guild.members.fetch(
-            serverQueue.queue[0].requestedBy
-        );
-        if (!member) return;
         const numberOfBars: number = 10;
         const connection: VoiceConnection | null =
             message.guild.me.voice.connection;

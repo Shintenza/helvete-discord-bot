@@ -131,18 +131,19 @@ client.on(
         return await serverQueue.save();
     }
 );
-const isInitialized = new Map();
+const initializedGuilds: string[] = [];
 let textChannelId = new Map();
 client.on('message', async (message: Message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    if (!isInitialized.has(message.guild.id)) {
+    if (!initializedGuilds.includes(message.guild.id)) {
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
-        if (serverQueue) isInitialized.set(message.guild.id, {});
+        if (serverQueue) initializedGuilds.push(message.guild.id);
     }
     const [command, ...args] = message.content.slice(prefix.length).split(/ +/);
-    if (!isInitialized.has(message.guild.id)) {
+    console.log(initializedGuilds);
+    if (!initializedGuilds.includes(message.guild.id)) {
         if (!client.commands.has(command)) return;
         if (command != 'init') {
             return message.channel.send(`U have to use ${prefix}init first!`);
