@@ -9,18 +9,19 @@ import {
     Client,
 } from 'discord.js';
 import Player from '../models/player_schema';
-import ytdl = require("ytdl-core");
+import ytdl = require('ytdl-core');
 import ytsr = require('ytsr');
 import ytpl = require('ytpl');
+import spotifyUri from 'spotify-uri';
 import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
 import Song from '../models/song_schema';
 const bannerLink = process.env.BANNER_LINK;
-if(!bannerLink) throw "u have to change the banner env"
+if (!bannerLink) throw 'u have to change the banner env';
 const initPlay: CommandOptions = {
     name: 'play',
-    execute: async (message: Message, args, client) => {
+    execute: async (message, args, client, spotifyApp) => {
         if (!message.guild) return;
         await message.delete();
         const serverQueue: IQueue | null = await Queue.findOne({
@@ -28,7 +29,7 @@ const initPlay: CommandOptions = {
         });
         const prefix = process.env.PREFIX;
         // general checking
-        
+
         if (!serverQueue) return;
         if (message.channel.id !== serverQueue.textChannelId) return;
 
@@ -58,42 +59,51 @@ const initPlay: CommandOptions = {
                     .then(msg => setTimeout(() => msg.delete(), 4000));
             }
         }
-        if(!serverQueue.bannerMessageId) {
-            const textChannel: TextChannel | undefined = message.guild.channels.cache.get(
-                serverQueue.textChannelId
-            ) as TextChannel;
-            if(!textChannel) return;
-            const playerEmbedMessage = await textChannel.messages.fetch(serverQueue.playerMessageId)
-                .catch(err=>undefined);
-            const queueEmbedMessage = await textChannel.messages.fetch(serverQueue.queueTextMessageId)
-                .catch(err=>undefined);
-            if(playerEmbedMessage && queueEmbedMessage) {
+        if (!serverQueue.bannerMessageId) {
+            const textChannel: TextChannel | undefined =
+                message.guild.channels.cache.get(
+                    serverQueue.textChannelId
+                ) as TextChannel;
+            if (!textChannel) return;
+            const playerEmbedMessage = await textChannel.messages
+                .fetch(serverQueue.playerMessageId)
+                .catch(err => undefined);
+            const queueEmbedMessage = await textChannel.messages
+                .fetch(serverQueue.queueTextMessageId)
+                .catch(err => undefined);
+            if (playerEmbedMessage && queueEmbedMessage) {
                 serverQueue.set(' playerMessageId ', undefined);
                 serverQueue.set(' queueTextMessage ', undefined);
-                await playerEmbedMessage.delete()
-                await queueEmbedMessage.delete()
-                await textChannel.send(bannerLink)
-                    .then(msg=>serverQueue.bannerMessageId=msg.id);
+                await playerEmbedMessage.delete();
+                await queueEmbedMessage.delete();
+                await textChannel
+                    .send(bannerLink)
+                    .then(msg => (serverQueue.bannerMessageId = msg.id));
             }
         }
 
         //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
         let toPlay: string = '';
         let playListSongs: Array<Song> = [];
-        if (message.content.includes('list') || (message.content.split(' ')[0]==`${prefix}bmp`) ){
+        if (
+            message.content.includes('list') ||
+            message.content.split(' ')[0] == `${prefix}bmp`
+        ) {
             let playlist;
-            if (message.content.split(' ')[0] == prefix +"bmp") {
-                console.log("bmp")
-                playlist = await ytpl("https://www.youtube.com/channel/UCzCWehBejA23yEz3zp7jlcg");
+            if (message.content.split(' ')[0] == prefix + 'bmp') {
+                console.log('bmp');
+                playlist = await ytpl(
+                    'https://www.youtube.com/channel/UCzCWehBejA23yEz3zp7jlcg'
+                );
             } else {
-                playlist =  await ytpl(message.content.split(' ')[0]).catch(
+                playlist = await ytpl(message.content.split(' ')[0]).catch(
                     err => undefined
                 );
             }
             if (!playlist) {
                 return await message.channel
                     .send('Playlist not found')
-                    .then((msg)=> msg.delete({timeout: 4000}));
+                    .then(msg => msg.delete({ timeout: 4000 }));
             }
             playlist.items.map((element: any) => {
                 playListSongs.push({
@@ -105,8 +115,14 @@ const initPlay: CommandOptions = {
                     requestedBy: message.author.id,
                 });
             });
-        } else if (message.content.includes('https://')) {
+        } else if (message.content.includes('https://www.youtube.com')) {
             toPlay = message.content.split(' ')[0];
+        } else if (message.content.includes('spotify.com/')) {
+            // const parsed = spotifyUri.parse(message.content.split(' ')[0]);
+            // if (!spotifyApp) {
+            //     throw 'Spotify app not working';
+            // }
+            console.log('spotify');
         } else {
             const search = await ytsr(message.content, { limit: 2 }).catch(
                 err => undefined
@@ -114,7 +130,7 @@ const initPlay: CommandOptions = {
             if (!search) {
                 return message.channel
                     .send('I have found nothing')
-                    .then((msg)=> msg.delete({timeout: 4000}));
+                    .then(msg => msg.delete({ timeout: 4000 }));
             }
             //@ts-ignore
             toPlay = search.items[0].url;
@@ -125,7 +141,7 @@ const initPlay: CommandOptions = {
             if (!ytdlInfo)
                 return await message.channel
                     .send("I haven't found that song")
-                    .then((msg)=> msg.delete({timeout: 4000}));
+                    .then(msg => msg.delete({ timeout: 4000 }));
             const song: Song = {
                 title: ytdlInfo.videoDetails.title,
                 url: ytdlInfo.videoDetails.video_url,
@@ -143,7 +159,7 @@ const initPlay: CommandOptions = {
             serverQueue.queue.push(...playListSongs);
             message.channel
                 .send('Queue has been updated with the given playlist')
-                .then((msg)=> msg.delete({timeout: 4000}));
+                .then(msg => msg.delete({ timeout: 4000 }));
         }
         const guildId = message.guild.id;
         if (serverQueue.queue.length > 1)
@@ -177,9 +193,10 @@ const play = async (
         .fetch(serverQueue.playerMessageId)
         .catch(err => undefined);
     const voiceConnection = guild.me!.voice;
-    const bannerMessage = await textChannel.messages.fetch(serverQueue.bannerMessageId)
+    const bannerMessage = await textChannel.messages
+        .fetch(serverQueue.bannerMessageId)
         .catch(err => undefined);
-    if(!bannerMessage) {
+    if (!bannerMessage) {
         await textChannel
             .send(bannerLink)
             .then(msg => (serverQueue.bannerMessageId = msg.id));
@@ -192,8 +209,8 @@ const play = async (
         if (playerEmbedMessage && queueEmbedMessage) {
             serverQueue.set('playerMessageId', undefined);
             serverQueue.set('queueTextMessage', undefined);
-            await queueEmbedMessage.delete()
-            await playerEmbedMessage.delete()
+            await queueEmbedMessage.delete();
+            await playerEmbedMessage.delete();
         }
         await textChannel
             .send(new Player())
@@ -209,8 +226,8 @@ const play = async (
         const queueEmbedMessage = await textChannel.messages
             .fetch(serverQueue.queueTextMessageId)
             .catch(err => undefined);
-        if(queueEmbedMessage){
-            await queueEmbedMessage.delete()
+        if (queueEmbedMessage) {
+            await queueEmbedMessage.delete();
         }
         await serverQueue.save();
         return play(guildId, client);
@@ -261,7 +278,7 @@ const play = async (
     let lastSong: Song = serverQueue.queue[0];
     const dispatcher: StreamDispatcher | undefined = voiceConnection.connection
         //@ts-ignore
-        ?.play(ytdl(serverQueue.queue[0].url, { filter: "audioonly" }))
+        ?.play(ytdl(serverQueue.queue[0].url, { filter: 'audioonly' }))
         .on('finish', async () => {
             //@ts-ignore
             await Queue.updateOne(

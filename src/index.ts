@@ -17,6 +17,7 @@ import pause from './functions/pause';
 import Player from './models/player_schema';
 import loop from './functions/loop';
 import antispam from './functions/antispam';
+import SpotifyWebApi from 'spotify-web-api-node';
 const client: Client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
@@ -27,10 +28,15 @@ if (!db) {
     throw 'chuju dawaj link do bazy';
 }
 
-
+const spotifyApp = new SpotifyWebApi();
+const spotifyToken = process.env.SPOTIFY_ACCESS_TOKEN;
+if (!spotifyToken) {
+    throw 'Hey, you have to give me the spotify access token';
+}
+spotifyApp.setAccessToken(spotifyToken);
 
 const prefix = process.env.PREFIX;
-if(!prefix) throw "You have to set up the token in env file!"
+if (!prefix) throw 'You have to set up the token in env file!';
 
 connect(db, {
     useNewUrlParser: true,
@@ -134,19 +140,17 @@ client.on(
         return await serverQueue.save();
     }
 );
-
+const isInitialized = new Map();
 let textChannelId = new Map();
 client.on('message', async (message: Message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
-    const isInitialized = new Map();
 
     if (!isInitialized.has(message.guild.id)) {
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
         if (serverQueue) isInitialized.set(message.guild.id, {});
     }
     const [command, ...args] = message.content.slice(prefix.length).split(/ +/);
-
     if (!isInitialized.has(message.guild.id)) {
         if (!client.commands.has(command)) return;
         if (command != 'init') {
@@ -177,7 +181,10 @@ client.on('message', async (message: Message) => {
         const diff = 5000;
         const time = 1000;
         antispam(message, usersMap, time, diff, limit);
-        if (message.content.startsWith(prefix) && !message.content.includes("bmp")) {
+        if (
+            message.content.startsWith(prefix) &&
+            !message.content.includes('bmp')
+        ) {
             try {
                 await message.delete();
                 client.commands.get(command)?.execute(message, args, client);
@@ -186,7 +193,12 @@ client.on('message', async (message: Message) => {
             }
         } else {
             try {
-                client.commands.get('play')?.execute(message, args, client);
+                if (!spotifyApp) {
+                    throw 'something went wrong with the spotify app';
+                }
+                client.commands
+                    .get('play')
+                    ?.execute(message, args, client, spotifyApp);
             } catch (err) {
                 return;
             }
