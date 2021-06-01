@@ -17,7 +17,6 @@ import pause from './functions/pause';
 import Player from './models/player_schema';
 import loop from './functions/loop';
 import antispam from './functions/antispam';
-import SpotifyWebApi from 'spotify-web-api-node';
 const client: Client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
@@ -27,14 +26,6 @@ let dbConnected = false;
 if (!db) {
     throw 'chuju dawaj link do bazy';
 }
-
-const spotifyApp = new SpotifyWebApi();
-const spotifyToken = process.env.SPOTIFY_ACCESS_TOKEN;
-if (!spotifyToken) {
-    throw 'Hey, you have to give me the spotify access token';
-}
-spotifyApp.setAccessToken(spotifyToken);
-
 const prefix = process.env.PREFIX;
 if (!prefix) throw 'You have to set up the token in env file!';
 
@@ -193,12 +184,7 @@ client.on('message', async (message: Message) => {
             }
         } else {
             try {
-                if (!spotifyApp) {
-                    throw 'something went wrong with the spotify app';
-                }
-                client.commands
-                    .get('play')
-                    ?.execute(message, args, client, spotifyApp);
+                client.commands.get('play')?.execute(message, args, client);
             } catch (err) {
                 return;
             }
