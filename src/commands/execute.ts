@@ -16,6 +16,7 @@ import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
 import Song from '../models/song_schema';
+import { getPreview } from 'spotify-url-info';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
 const initPlay: CommandOptions = {
@@ -117,11 +118,26 @@ const initPlay: CommandOptions = {
         } else if (message.content.includes('https://www.youtube.com')) {
             toPlay = message.content.split(' ')[0];
         } else if (message.content.includes('spotify.com/')) {
-            // const parsed = spotifyUri.parse(message.content.split(' ')[0]);
-            // if (!spotifyApp) {
-            //     throw 'Spotify app not working';
-            // }
-            console.log('spotify');
+            const spotifyTrack = await getPreview(
+                message.content.split(' ')[0]
+            ).catch(err => console.log(err));
+            if (!spotifyTrack) {
+                return message.channel
+                    .send('Spotify song not found')
+                    .then(msg => msg.delete({ timeout: 4000 }))
+                    .catch(err => console.log(err));
+            }
+            const searchString: string = `${spotifyTrack.title} ${spotifyTrack.artist}`;
+            const search = await ytsr(searchString, { limit: 2 }).catch(
+                _err => undefined
+            );
+            if (!search) {
+                return message.channel
+                    .send('I have not found that song')
+                    .then(msg => msg.delete({ timeout: 4000 }));
+            }
+            //@ts-ignore
+            toPlay = search.items[0].url;
         } else {
             const search = await ytsr(message.content, { limit: 2 }).catch(
                 err => undefined
@@ -274,7 +290,7 @@ const play = async (
     playerEmbedMessage.react('🔄');
     //plays a song
 
-    let lastSong: Song = serverQueue.queue[0];
+    const lastSong: Song = serverQueue.queue[0];
     const dispatcher: StreamDispatcher | undefined = voiceConnection.connection
         //@ts-ignore
         ?.play(ytdl(serverQueue.queue[0].url, { filter: 'audioonly' }))

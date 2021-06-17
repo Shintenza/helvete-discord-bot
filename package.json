@@ -15,8 +15,8 @@
   "devDependencies": {
     "@types/mongoose": "^5.10.5",
     "@types/node": "^15.0.1",
-    "@typescript-eslint/eslint-plugin": "^4.22.0",
-    "@typescript-eslint/parser": "^4.22.0",
+    "@typescript-eslint/eslint-plugin": "^4.27.0",
+    "@typescript-eslint/parser": "^4.27.0",
     "eslint": "^7.25.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.0",
@@ -33,7 +33,7 @@
     "ffmpeg-static": "^4.3.0",
     "mongoose": "^5.12.7",
     "spotify-uri": "^2.2.0",
-    "spotify-web-api-node": "^5.0.2",
+    "spotify-url-info": "^2.2.3",
     "ytdl-core": "^4.8.0",
     "ytpl": "^2.2.1",
     "ytsr": "^3.5.0"
