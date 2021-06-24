@@ -17,10 +17,39 @@ import pause from './functions/pause';
 import Player from './models/player_schema';
 import loop from './functions/loop';
 import antispam from './functions/antispam';
+import { Manager } from 'erela.js';
 const client: Client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
-
+client.manager = new Manager({
+    nodes: [
+        {
+          host: "localhost", // Optional if Lavalink is local
+          port: 2333, // Optional if Lavalink is set to default
+          password: "devynicnierombia", // Optional if Lavalink is set to default
+        },
+      ],
+      send(id, payload) {
+        const guild = client.guilds.cache.get(id);
+        if (guild) guild.shard.send(payload);
+      },
+})
+    .on("nodeConnect", node => console.log(`Node ${node.options.identifier} connected`))
+    .on("nodeError", (node, error) => console.log(`Node ${node.options.identifier} had an error: ${error.message}`))
+    .on("trackStart", (player, track) => {
+        if(!player.textChannel) return;
+        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
+        if(!channel) return;
+        channel.send(`Now playing: ${track.title}`);
+    })
+    .on("queueEnd", (player) => {
+        if(!player.textChannel) return;
+        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
+        if(!channel) return;
+        channel.send(`Queue is kill`);
+        player.destroy();
+    });
+ 
 const db = process.env.DB_CONNECTION;
 let dbConnected = false;
 if (!db) {

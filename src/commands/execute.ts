@@ -117,7 +117,7 @@ const initPlay: CommandOptions = {
             });
         } else if (message.content.includes('https://www.youtube.com')) {
             toPlay = message.content.split(' ')[0];
-        } else if (message.content.includes('spotify.com/')) {
+        } else if (message.content.includes('spotify.com/track')) {
             const spotifyTrack = await getPreview(
                 message.content.split(' ')[0]
             ).catch(err => console.log(err));

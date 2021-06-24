@@ -1,11 +1,13 @@
 import { Client, ClientOptions, Collection } from 'discord.js';
 import CommandOptions from '../types'
 import * as dotenv from 'dotenv';
+import { Manager } from 'erela.js';
 dotenv.config();
 
 class Bot extends Client{
     public token: string;
     public commands = new Collection<string, CommandOptions>();
+    public manager: any = {};
 
     public constructor(options?: ClientOptions){
         super(options)
