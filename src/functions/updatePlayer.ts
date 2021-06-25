@@ -74,7 +74,7 @@ const updatePlayer = async (
     }
     //sets player embed
     const playerEmbed: Player = new Player()
-        .setImage(serverQueue.queue[0].displayThumbnail)
+        .setImage(serverQueue.queue[0].thumbnail)
         .setTitle(serverQueue.queue[0].title)
         .setDescription(`Uploaded by ${serverQueue.queue[0].author}`)
         .setFooter(

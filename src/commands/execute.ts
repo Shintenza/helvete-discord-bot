@@ -104,7 +104,7 @@ const initPlay: CommandOptions = {
                         author: song.author,
                         duration: song.duration,
                         uri: song.uri,
-                        thumbnail: song.thumbnail,
+                        thumbnail: song.displayThumbnail('hqdefault'),
                         requester: message.author.id,
                     });
                 });
@@ -135,7 +135,7 @@ const initPlay: CommandOptions = {
                 author: foundSong.author,
                 duration: foundSong.duration,
                 uri: foundSong.uri,
-                thumbnail: foundSong.thumbnail,
+                thumbnail: foundSong.displayThumbnail('hqdefault'),
                 requester: message.author.id,
             });
             musicToPlay.push(foundSong);
