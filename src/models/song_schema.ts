@@ -1,10 +1,9 @@
-import ytdl = require("ytdl-core")
 interface Song {
     title: string;
-    url: string;
-    thumbnailUrl: string;
+    author: string;
     duration: number;
-    author: ytdl.Author;
-    requestedBy: string
+    uri: string;
+    thumbnail: string;
+    requester: string;
 }
-export default Song
+export default Song;

@@ -18,38 +18,77 @@ import Player from './models/player_schema';
 import loop from './functions/loop';
 import antispam from './functions/antispam';
 import { Manager } from 'erela.js';
+import updatePlayer from './functions/updatePlayer';
 const client: Client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
 client.manager = new Manager({
     nodes: [
         {
-          host: "localhost", // Optional if Lavalink is local
-          port: 2333, // Optional if Lavalink is set to default
-          password: "devynicnierombia", // Optional if Lavalink is set to default
+            host: 'localhost', // Optional if Lavalink is local
+            port: 2333, // Optional if Lavalink is set to default
         },
-      ],
-      send(id, payload) {
+    ],
+    send(id, payload) {
         const guild = client.guilds.cache.get(id);
         if (guild) guild.shard.send(payload);
-      },
+    },
 })
-    .on("nodeConnect", node => console.log(`Node ${node.options.identifier} connected`))
-    .on("nodeError", (node, error) => console.log(`Node ${node.options.identifier} had an error: ${error.message}`))
-    .on("trackStart", (player, track) => {
-        if(!player.textChannel) return;
-        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
-        if(!channel) return;
-        channel.send(`Now playing: ${track.title}`);
+    .on('nodeConnect', node =>
+        console.log(`Node ${node.options.identifier} connected`)
+    )
+    .on('nodeError', (node, error) =>
+        console.log(
+            `Node ${node.options.identifier} had an error: ${error.message}`
+        )
+    )
+    .on('trackStart', async (player, track) => {
+        if (!player.textChannel) return;
+        const channel = client.channels.cache.get(
+            player.textChannel
+        ) as TextChannel;
+        if (!channel) return;
+        const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
+        if (!serverQueue) return;
+        console.log('from trackStart');
+        updatePlayer(client, serverQueue);
     })
-    .on("queueEnd", (player) => {
-        if(!player.textChannel) return;
-        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
-        if(!channel) return;
-        channel.send(`Queue is kill`);
+    .on('trackEnd', async (player, track) => {
+        console.log('track finished');
+        if (!player.textChannel) return;
+        const channel = client.channels.cache.get(
+            player.textChannel
+        ) as TextChannel;
+        if (!channel) return;
+        await Queue.updateOne(
+            { guildId: channel.guild.id },
+            { $pop: { queue: -1 } }
+        );
+    })
+    .on('queueEnd', async player => {
+        if (!player.textChannel) return;
+        const channel = client.channels.cache.get(
+            player.textChannel
+        ) as TextChannel;
+        if (!channel) return;
+        const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
+        if (!serverQueue) return;
+        const guild = channel.guild;
+        if (!guild) return;
+        const textChannel: TextChannel | undefined = guild.channels.cache.get(
+            serverQueue.textChannelId
+        ) as TextChannel;
+        const playerEmbedMessage: Message | undefined =
+            await textChannel.messages
+                .fetch(serverQueue.playerMessageId)
+                .catch(err => undefined);
+        if (playerEmbedMessage) {
+            playerEmbedMessage.edit(new Player());
+        } // #todo if does not exist it should be created
+
         player.destroy();
     });
- 
+
 const db = process.env.DB_CONNECTION;
 let dbConnected = false;
 if (!db) {
@@ -72,6 +111,7 @@ connect(db, {
 
 client.on('ready', async () => {
     console.log('I am ready to pop');
+    client.manager.init(client.user?.id);
     const commandFiles = fs
         .readdirSync(__dirname + '/commands')
         .filter(file => {
@@ -83,6 +123,7 @@ client.on('ready', async () => {
         client.commands.set(command.name, command);
     }
 });
+client.on('raw', d => client.manager.updateVoiceState(d));
 client.on('guildCreate', (guild: Guild) => {
     if (!dbConnected) return;
     const infoChannel: TextChannel = guild.channels.cache
@@ -115,14 +156,14 @@ client.on(
 
         if (!newState.channel) {
             const voiceConnection = newState.guild!.me!.voice;
-            await Queue.updateOne(
-                { guildId: newState.guild.id },
-                {
-                    //@ts-ignore
-                    $unset: { voiceChannelId: 1 },
-                    queue: [],
-                }
-            );
+            // await Queue.updateOne(
+            //     { guildId: newState.guild.id },
+            //     {
+            //         //@ts-ignore
+            //         $unset: { voiceChannelId: 1 },
+            //         queue: [],
+            //     }
+            // );
             await Queue.findOne(
                 { guildId: newState.guild.id },
                 async (err: Error, serverQueue: IQueue) => {
@@ -235,7 +276,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
         stop(reaction.message.channel as TextChannel, user as User);
     } else if (reaction.emoji.name == '⏭️') {
         console.log('skip');
-        skip(reaction.message.channel as TextChannel, user as User);
+        skip(reaction.message.channel as TextChannel, user as User, client);
     } else if (reaction.emoji.name == '⏯️') {
         console.log('pause');
         pause(reaction.message.channel as TextChannel, user as User);
