@@ -60,10 +60,14 @@ client.manager = new Manager({
             player.textChannel
         ) as TextChannel;
         if (!channel) return;
-        await Queue.updateOne(
-            { guildId: channel.guild.id },
-            { $pop: { queue: -1 } }
-        );
+        const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
+        if (!serverQueue) return;
+        if (!serverQueue.isLooped) {
+            await Queue.updateOne(
+                { guildId: channel.guild.id },
+                { $pop: { queue: -1 } }
+            );
+        }
     })
     .on('queueEnd', async player => {
         if (!player.textChannel) return;
@@ -279,13 +283,13 @@ client.on('messageReactionAdd', async (reaction, user) => {
         skip(reaction.message.channel as TextChannel, user as User, client);
     } else if (reaction.emoji.name == '⏯️') {
         console.log('pause');
-        pause(reaction.message.channel as TextChannel, user as User);
+        pause(reaction.message.channel as TextChannel, user as User, client);
     } else if (reaction.emoji.name == '🔀') {
         console.log('shuffle');
         shuffle(reaction.message.channel as TextChannel, user as User);
     } else if (reaction.emoji.name == '🔄') {
         console.log('loop');
-        loop(reaction.message.channel as TextChannel, user as User);
+        loop(reaction.message.channel as TextChannel, user as User, client);
     }
     reaction.users.remove(user as User);
 });
