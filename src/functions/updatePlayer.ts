@@ -2,29 +2,19 @@ import { Client, TextChannel, Message, GuildMember } from 'discord.js';
 import { IQueue } from '../models/queue_schema';
 import Player from '../models/player_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
-const updatePlayer = async (
-    client: Client,
-    serverQueue: IQueue
-): Promise<void> => {
+const updatePlayer = async (client: Client, serverQueue: IQueue): Promise<void> => {
     const bannerLink = process.env.BANNER_LINK;
     if (!bannerLink) throw 'u have to change the banner env';
     const guild = client.guilds.cache.get(serverQueue.guildId);
     if (!guild) return console.log('guild not found');
-    const textChannel: TextChannel | undefined = guild.channels.cache.get(
-        serverQueue.textChannelId
-    ) as TextChannel;
+    const textChannel: TextChannel | undefined = guild.channels.cache.get(serverQueue.textChannelId) as TextChannel;
 
     const playerEmbedMessage: Message | undefined = await textChannel.messages
         .fetch(serverQueue.playerMessageId)
         .catch(err => undefined);
-    const voiceConnection = guild.me!.voice;
-    const bannerMessage = await textChannel.messages
-        .fetch(serverQueue.bannerMessageId)
-        .catch(err => undefined);
+    const bannerMessage = await textChannel.messages.fetch(serverQueue.bannerMessageId).catch(err => undefined);
     if (!bannerMessage) {
-        await textChannel
-            .send(bannerLink)
-            .then(msg => (serverQueue.bannerMessageId = msg.id));
+        await textChannel.send(bannerLink).then(msg => (serverQueue.bannerMessageId = msg.id));
         const queueEmbedMessage = await textChannel.messages
             .fetch(serverQueue.queueTextMessageId)
             .catch(err => undefined);
@@ -37,17 +27,13 @@ const updatePlayer = async (
             await queueEmbedMessage.delete();
             await playerEmbedMessage.delete();
         }
-        await textChannel
-            .send(new Player())
-            .then(msg => (serverQueue.playerMessageId = msg.id));
+        await textChannel.send(new Player()).then(msg => (serverQueue.playerMessageId = msg.id));
         await serverQueue.save();
         return updatePlayer(client, serverQueue);
     }
     //if playerEmbedMessage is deleted, this if brings it back
     if (!playerEmbedMessage) {
-        await textChannel
-            .send(new Player())
-            .then(msg => (serverQueue.playerMessageId = msg.id));
+        await textChannel.send(new Player()).then(msg => (serverQueue.playerMessageId = msg.id));
         const queueEmbedMessage = await textChannel.messages
             .fetch(serverQueue.queueTextMessageId)
             .catch(err => undefined);
@@ -66,9 +52,7 @@ const updatePlayer = async (
     if (!serverQueue.queue[0].requester) {
         return;
     }
-    const member: GuildMember | undefined = await guild.members.fetch(
-        serverQueue.queue[0].requester
-    );
+    const member: GuildMember | undefined = await guild.members.fetch(serverQueue.queue[0].requester);
     if (!member) {
         return;
     }
@@ -77,10 +61,7 @@ const updatePlayer = async (
         .setImage(serverQueue.queue[0].thumbnail)
         .setTitle(serverQueue.queue[0].title)
         .setDescription(`Uploaded by ${serverQueue.queue[0].author}`)
-        .setFooter(
-            `Requested by ${member.user.tag}`,
-            `${member.user.displayAvatarURL()}`
-        );
+        .setFooter(`Requested by ${member.user.tag}`, `${member.user.displayAvatarURL()}`);
     playerEmbedMessage.edit(playerEmbed);
     playerEmbedMessage.react('⏯️');
     playerEmbedMessage.react('⏹️');

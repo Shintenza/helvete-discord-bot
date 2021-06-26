@@ -1,11 +1,4 @@
-import {
-    Guild,
-    Message,
-    MessageEmbed,
-    TextChannel,
-    User,
-    VoiceState,
-} from 'discord.js';
+import { Guild, Message, MessageEmbed, TextChannel, User, VoiceState } from 'discord.js';
 import { Queue, IQueue } from './models/queue_schema';
 import { connect } from 'mongoose';
 import Client from './client/Client';
@@ -34,63 +27,55 @@ client.manager = new Manager({
         if (guild) guild.shard.send(payload);
     },
 })
-    .on('nodeConnect', node =>
-        console.log(`Node ${node.options.identifier} connected`)
-    )
-    .on('nodeError', (node, error) =>
-        console.log(
-            `Node ${node.options.identifier} had an error: ${error.message}`
-        )
-    )
+    .on('nodeConnect', node => console.log(`Node ${node.options.identifier} connected`))
+    .on('nodeError', (node, error) => console.log(`Node ${node.options.identifier} had an error: ${error.message}`))
     .on('trackStart', async (player, track) => {
         if (!player.textChannel) return;
-        const channel = client.channels.cache.get(
-            player.textChannel
-        ) as TextChannel;
+        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
         if (!channel) return;
         const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
         if (!serverQueue) return;
-        console.log('from trackStart');
-        updatePlayer(client, serverQueue);
+        console.log(track.title);
     })
     .on('trackEnd', async (player, track) => {
         console.log('track finished');
         if (!player.textChannel) return;
-        const channel = client.channels.cache.get(
-            player.textChannel
-        ) as TextChannel;
+        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
         if (!channel) return;
         const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
         if (!serverQueue) return;
         if (!serverQueue.isLooped) {
-            await Queue.updateOne(
-                { guildId: channel.guild.id },
-                { $pop: { queue: -1 } }
-            );
+            serverQueue.queue.shift();
+            await serverQueue.save();
+            await updatePlayer(client, serverQueue);
         }
     })
     .on('queueEnd', async player => {
         if (!player.textChannel) return;
-        const channel = client.channels.cache.get(
-            player.textChannel
-        ) as TextChannel;
+        const channel = client.channels.cache.get(player.textChannel) as TextChannel;
         if (!channel) return;
         const serverQueue = await Queue.findOne({ guildId: channel.guild.id });
         if (!serverQueue) return;
         const guild = channel.guild;
         if (!guild) return;
-        const textChannel: TextChannel | undefined = guild.channels.cache.get(
-            serverQueue.textChannelId
-        ) as TextChannel;
-        const playerEmbedMessage: Message | undefined =
-            await textChannel.messages
-                .fetch(serverQueue.playerMessageId)
-                .catch(err => undefined);
+        const textChannel: TextChannel | undefined = guild.channels.cache.get(serverQueue.textChannelId) as TextChannel;
+        const playerEmbedMessage: Message | undefined = await textChannel.messages
+            .fetch(serverQueue.playerMessageId)
+            .catch(err => undefined);
         if (playerEmbedMessage) {
             playerEmbedMessage.edit(new Player());
         } // #todo if does not exist it should be created
 
         player.destroy();
+    })
+    .on('playerMove', (player, oldChannel, newChannel) => {
+        if (!newChannel) player.destroy();
+        player.voiceChannel = newChannel;
+        console.log('magic code below');
+        setTimeout(() => {
+            player.pause(true);
+            setTimeout(() => player.pause(false), client.ws.ping * 4);
+        }, client.ws.ping * 4);
     });
 
 const db = process.env.DB_CONNECTION;
@@ -116,12 +101,10 @@ connect(db, {
 client.on('ready', async () => {
     console.log('I am ready to pop');
     client.manager.init(client.user?.id);
-    const commandFiles = fs
-        .readdirSync(__dirname + '/commands')
-        .filter(file => {
-            if (file.endsWith('.js')) return file;
-            if (file.endsWith('.ts')) return file;
-        });
+    const commandFiles = fs.readdirSync(__dirname + '/commands').filter(file => {
+        if (file.endsWith('.js')) return file;
+        if (file.endsWith('.ts')) return file;
+    });
     for (const file of commandFiles) {
         const command = await import(`./commands/${file}`);
         client.commands.set(command.name, command);
@@ -131,80 +114,69 @@ client.on('raw', d => client.manager.updateVoiceState(d));
 client.on('guildCreate', (guild: Guild) => {
     if (!dbConnected) return;
     const infoChannel: TextChannel = guild.channels.cache
-        .filter(
-            channel =>
-                channel
-                    .permissionsFor(client.user as User)
-                    ?.has('SEND_MESSAGES') as boolean
-        )
+        .filter(channel => channel.permissionsFor(client.user as User)?.has('SEND_MESSAGES') as boolean)
         .filter(channel => channel.type === 'text')
         .first() as TextChannel;
     const helloMessage = new MessageEmbed()
         .setTitle('Helvete notifier')
-        .setDescription(
-            `Hello, I am here to play some good music but first, you need to type ${prefix}init`
-        );
+        .setDescription(`Hello, I am here to play some good music but first, you need to type ${prefix}init`);
     infoChannel.send(helloMessage);
 });
 
 // updates bot's voiceChannelId inside database
-client.on(
-    'voiceStateUpdate',
-    async (oldState: VoiceState, newState: VoiceState) => {
-        if (
-            oldState.channelID === null ||
-            typeof oldState.channelID == 'undefined'
-        )
-            return;
-        if (newState.id !== client.user?.id) return;
-
-        if (!newState.channel) {
-            const voiceConnection = newState.guild!.me!.voice;
-            // await Queue.updateOne(
-            //     { guildId: newState.guild.id },
-            //     {
-            //         //@ts-ignore
-            //         $unset: { voiceChannelId: 1 },
-            //         queue: [],
-            //     }
-            // );
-            await Queue.findOne(
-                { guildId: newState.guild.id },
-                async (err: Error, serverQueue: IQueue) => {
-                    if (serverQueue) {
-                        const textChannel: TextChannel | undefined =
-                            newState.guild.channels.cache.get(
-                                serverQueue.textChannelId
-                            ) as TextChannel;
-                        if (!textChannel) return;
-                        const playerEmbedMessage: Message | undefined =
-                            await textChannel.messages
-                                .fetch(serverQueue.playerMessageId)
-                                .catch(err => undefined);
-                        if (!playerEmbedMessage) return;
-                        playerEmbedMessage.edit(new Player());
-
-                        const queueEmbedMessage = await textChannel.messages
-                            .fetch(serverQueue.queueTextMessageId)
-                            .catch(err => undefined);
-                        if (!queueEmbedMessage) return;
-                        queueEmbedMessage.delete();
-                    }
-                }
-            );
-            voiceConnection.connection?.dispatcher.end();
-            return;
-        }
-
-        const serverQueue = await Queue.findOne({ guildId: newState.guild.id });
-        if (!serverQueue) return;
-
-        // when the bot is moved lines below update his voice channel inside databae
-
-        serverQueue.voiceChannelId = newState.channel.id;
-        return await serverQueue.save();
+client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
+    if (oldState.channelID === null || typeof oldState.channelID == 'undefined') return;
+    if (newState.id !== client.user?.id) return;
+    if (oldState.channelID === newState.channelID) {
+        const player = client.manager.players.get(newState.guild.id);
+        if (!player) return;
+        setTimeout(() => {
+            player.pause(true);
+            setTimeout(() => player.pause(false), client.ws.ping * 4);
+        }, client.ws.ping * 4);
     }
-);
+
+    if (!newState.channel) {
+        await Queue.updateOne(
+            { guildId: newState.guild.id },
+            {
+                //@ts-ignore
+                $unset: { voiceChannelId: 1 },
+                queue: [],
+            }
+        );
+        await Queue.findOne({ guildId: newState.guild.id }, async (err: Error, serverQueue: IQueue) => {
+            if (serverQueue) {
+                const textChannel: TextChannel | undefined = newState.guild.channels.cache.get(
+                    serverQueue.textChannelId
+                ) as TextChannel;
+                if (!textChannel) return;
+                const playerEmbedMessage: Message | undefined = await textChannel.messages
+                    .fetch(serverQueue.playerMessageId)
+                    .catch(err => undefined);
+                if (!playerEmbedMessage) return;
+                playerEmbedMessage.edit(new Player());
+
+                const queueEmbedMessage = await textChannel.messages
+                    .fetch(serverQueue.queueTextMessageId)
+                    .catch(err => undefined);
+                if (!queueEmbedMessage) return;
+                queueEmbedMessage.delete();
+            }
+        });
+        return;
+    }
+
+    const serverQueue = await Queue.findOne({ guildId: newState.guild.id });
+    if (!serverQueue) return;
+    const player = client.manager.players.get(newState.guild.id);
+    if (!player) return;
+    // when the bot is moved lines below update his voice channel inside databae
+
+    serverQueue.voiceChannelId = newState.channel.id;
+    // player.setVoiceChannel(newState.channel.id);
+    return await serverQueue.save();
+});
 const initializedGuilds: string[] = [];
 let textChannelId = new Map();
 client.on('message', async (message: Message) => {
@@ -247,10 +219,7 @@ client.on('message', async (message: Message) => {
         const diff = 5000;
         const time = 1000;
         antispam(message, usersMap, time, diff, limit);
-        if (
-            message.content.startsWith(prefix) &&
-            !message.content.includes('bmp')
-        ) {
+        if (message.content.startsWith(prefix) && !message.content.includes('bmp')) {
             try {
                 await message.delete();
                 client.commands.get(command)?.execute(message, args, client);

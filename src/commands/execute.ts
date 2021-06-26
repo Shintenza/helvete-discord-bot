@@ -1,12 +1,4 @@
-import {
-    Message,
-    StreamDispatcher,
-    VoiceConnection,
-    TextChannel,
-    User,
-    MessageEmbed,
-    GuildMember,
-} from 'discord.js';
+import { Message, StreamDispatcher, VoiceConnection, TextChannel, User, MessageEmbed, GuildMember } from 'discord.js';
 
 import Client from './../client/Client';
 import CommandOptions from '../types';
@@ -38,31 +30,24 @@ const initPlay: CommandOptions = {
                 .then(msg => setTimeout(() => msg.delete(), 4000));
 
         const voiceChannel = message.member.voice.channel;
-        const permissions = voiceChannel.permissionsFor(
-            message.client.user as User
-        );
+        const permissions = voiceChannel.permissionsFor(message.client.user as User);
         if (!permissions!.has('CONNECT') || !permissions!.has('SPEAK')) {
             const errEmbed: MessageEmbed = new MessageEmbed().setDescription(
                 'I need the permissions to join and speak in your voice channel!'
             );
-            return await message.channel
-                .send(errEmbed)
-                .then(msg => setTimeout(() => msg.delete(), 4000));
+            return await message.channel.send(errEmbed).then(msg => setTimeout(() => msg.delete(), 4000));
         }
         if (serverQueue.voiceChannelId && message.guild.me?.voice.channel) {
-            if (
-                message.member.voice.channel.id !== serverQueue.voiceChannelId
-            ) {
+            if (message.member.voice.channel.id !== serverQueue.voiceChannelId) {
                 return await message.channel
                     .send('You have to be in the same voice channel')
                     .then(msg => setTimeout(() => msg.delete(), 4000));
             }
         }
         if (!serverQueue.bannerMessageId) {
-            const textChannel: TextChannel | undefined =
-                message.guild.channels.cache.get(
-                    serverQueue.textChannelId
-                ) as TextChannel;
+            const textChannel: TextChannel | undefined = message.guild.channels.cache.get(
+                serverQueue.textChannelId
+            ) as TextChannel;
             if (!textChannel) return;
             const playerEmbedMessage = await textChannel.messages
                 .fetch(serverQueue.playerMessageId)
@@ -75,9 +60,7 @@ const initPlay: CommandOptions = {
                 serverQueue.set(' queueTextMessage ', undefined);
                 await playerEmbedMessage.delete();
                 await queueEmbedMessage.delete();
-                await textChannel
-                    .send(bannerLink)
-                    .then(msg => (serverQueue.bannerMessageId = msg.id));
+                await textChannel.send(bannerLink).then(msg => (serverQueue.bannerMessageId = msg.id));
             }
         }
         const player = client.manager.create({
@@ -88,10 +71,7 @@ const initPlay: CommandOptions = {
 
         //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
         let musicToPlay = [];
-        if (
-            message.content.includes('list=') ||
-            message.content.split(' ')[0] == `${prefix}bmp`
-        ) {
+        if (message.content.includes('list=') || message.content.split(' ')[0] == `${prefix}bmp`) {
             let songs: Array<Song> = [];
             const searchResult = await client.manager
                 .search(message.content.split(' ')[0])
@@ -110,9 +90,7 @@ const initPlay: CommandOptions = {
                 });
             }
             if (!songs) {
-                return await message.channel
-                    .send('Playlist not found')
-                    .then(msg => msg.delete({ timeout: 4000 }));
+                return await message.channel.send('Playlist not found').then(msg => msg.delete({ timeout: 4000 }));
             }
 
             serverQueue.queue.push(...songs);
@@ -125,9 +103,7 @@ const initPlay: CommandOptions = {
         } else {
             const search = await client.manager.search(message.content);
             if (!search) {
-                return message.channel
-                    .send('I have found nothing')
-                    .then(msg => msg.delete({ timeout: 4000 }));
+                return message.channel.send('I have found nothing').then(msg => msg.delete({ timeout: 4000 }));
             }
             const foundSong: Track = search.tracks[0];
             serverQueue.queue.push({
@@ -142,12 +118,9 @@ const initPlay: CommandOptions = {
         }
 
         const guildId = message.guild.id;
-        if (serverQueue.queue.length > 1)
-            await updateQueueMesg(message.channel as TextChannel, serverQueue);
+        if (serverQueue.queue.length > 1) await updateQueueMesg(message.channel as TextChannel, serverQueue);
         serverQueue.voiceChannelId = voiceChannel.id;
-
         await serverQueue.save();
-        console.log(player.queue);
         player.queue.add(musicToPlay);
 
         if (!player.playing) {
@@ -177,15 +150,12 @@ const initPlay: CommandOptions = {
 };
 export = initPlay;
 
-const play = async (
-    player: any,
-    guildId: string,
-    client: Client
-): Promise<void> => {
+const play = async (player: any, guildId: string, client: Client): Promise<void> => {
     const serverQueue: IQueue | null = await Queue.findOne({
         guildId: guildId,
     });
     if (!serverQueue) return;
+    updatePlayer(client, serverQueue);
 
     if (!player.playing && !player.paused) {
         player.play();

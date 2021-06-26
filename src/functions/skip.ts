@@ -6,15 +6,11 @@ import Client from './../client/Client';
 const skip = async (textChannel: TextChannel, user: User, client: Client) => {
     const serverQueue = await Queue.findOne({ guildId: textChannel.guild.id });
     if (!serverQueue) {
-        return textChannel
-            .send('Guild not found')
-            .then(msg => setTimeout(() => msg.delete(), 4000));
+        return textChannel.send('Guild not found').then(msg => setTimeout(() => msg.delete(), 4000));
     }
     const member = await textChannel.guild.members.fetch(user);
     if (!member) return;
-    const role = textChannel.guild.roles.cache.find(
-        role => role.name == 'HelveteDJ'
-    );
+    const role = textChannel.guild.roles.cache.find(role => role.name == 'HelveteDJ');
     let isAllowed: boolean = false;
     if (
         member.permissions.has('MANAGE_ROLES') ||
@@ -50,6 +46,9 @@ const skip = async (textChannel: TextChannel, user: User, client: Client) => {
     }
     const player = client.manager.players.get(textChannel.guild.id);
     if (!player) return;
+    if (player.trackRepeat) {
+        serverQueue.isLooped = false;
+    }
     player.stop();
     await serverQueue.save();
     return;
