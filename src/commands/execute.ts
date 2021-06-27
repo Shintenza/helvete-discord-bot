@@ -9,7 +9,7 @@ import {
     Client,
 } from 'discord.js';
 import Player from '../models/player_schema';
-import ytdl = require('ytdl-core');
+import ytdl = require('ytdl-core-discord');
 import ytsr = require('ytsr');
 import ytpl = require('ytpl');
 import CommandOptions from '../types';
@@ -293,7 +293,7 @@ const play = async (
     const lastSong: Song = serverQueue.queue[0];
     const dispatcher: StreamDispatcher | undefined = voiceConnection.connection
         //@ts-ignore
-        ?.play(ytdl(serverQueue.queue[0].url, { filter: 'audioonly' }))
+        ?.play(await ytdl(serverQueue.queue[0].url), { type: 'opus' })
         .on('finish', async () => {
             //@ts-ignore
             await Queue.updateOne(
