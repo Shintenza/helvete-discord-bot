@@ -1,28 +1,38 @@
 import { Message, StreamDispatcher, VoiceConnection, TextChannel, User, MessageEmbed, GuildMember } from 'discord.js';
 
-import Client from './../client/Client';
+import Client from '../classes/Client';
 import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
 import Track from '../models/track_schema';
 import Song from '../models/song_schema';
 import updatePlayer from '../functions/updatePlayer';
+import { ShoukakuPlayer, ShoukakuSocket, ShoukakuTrack } from 'shoukaku';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
+
 const initPlay: CommandOptions = {
     name: 'play',
-    execute: async (message, args, client) => {
+    execute: async (message, args, client, node: ShoukakuSocket) => {
         if (!message.guild) return;
-        await message.delete();
+        try {
+            await message.delete();
+        } catch (err) {
+            console.log(err);
+        }
+
         const serverQueue: IQueue | null = await Queue.findOne({
             guildId: message.guild!.id,
         });
-        const prefix = process.env.PREFIX;
+
+        const prefix = process.env.PREFIX; //requires refactoring
+
         // general checking
 
         if (!serverQueue) return;
-        const initialServerQueueLength = serverQueue.queue.length;
         if (message.channel.id !== serverQueue.textChannelId) return;
+
+        const initialServerQueueLength = serverQueue.queue.length;
 
         if (!message.member?.voice.channel)
             return await message.channel
@@ -58,106 +68,82 @@ const initPlay: CommandOptions = {
             if (playerEmbedMessage && queueEmbedMessage) {
                 serverQueue.set(' playerMessageId ', undefined);
                 serverQueue.set(' queueTextMessage ', undefined);
-                await playerEmbedMessage.delete();
-                await queueEmbedMessage.delete();
+                try {
+                    await playerEmbedMessage.delete();
+                    await queueEmbedMessage.delete();
+                } catch (err) {
+                    console.log(err);
+                }
+
                 await textChannel.send(bannerLink).then(msg => (serverQueue.bannerMessageId = msg.id));
             }
         }
-        const player = client.manager.create({
-            guild: message.guild.id,
-            voiceChannel: message.member.voice.channel.id,
-            textChannel: message.channel.id,
-        });
 
+        // player.on('end', async () => {
+
+        // });
         //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
-        let musicToPlay = [];
-        if (message.content.includes('list=') || message.content.split(' ')[0] == `${prefix}bmp`) {
-            let songs: Array<Song> = [];
-            const searchResult = await client.manager
-                .search(message.content.split(' ')[0])
-                .catch((err: Error) => undefined);
-            if (searchResult.tracks) {
-                searchResult.tracks.map((song: Track) => {
-                    console.log(song.displayThumbnail);
-                    songs.push({
-                        title: song.title,
-                        author: song.author,
-                        duration: song.duration,
-                        uri: song.uri,
-                        thumbnail: song.displayThumbnail('hqdefault'),
-                        requester: message.author.id,
-                    });
-                });
-            }
-            if (!songs) {
-                return await message.channel.send('Playlist not found').then(msg => msg.delete({ timeout: 4000 }));
-            }
-
-            serverQueue.queue.push(...songs);
-            message.channel
-                .send('Queue has been updated with the given playlist')
-                .then(msg => msg.delete({ timeout: 4000 }));
-            musicToPlay.push(...searchResult.tracks);
+        let musicToPlay: Array<Song> = [];
+        if (message.content.includes('penis') || message.content.split(' ')[0] == `${prefix}bmp`) {
         } else if (message.content.includes('https://www.chuj.com')) {
             // toPlay = message.content.split(' ')[0];
         } else {
-            const search = await client.manager.search(message.content);
-            if (!search) {
-                return message.channel.send('I have found nothing').then(msg => msg.delete({ timeout: 4000 }));
-            }
-            const foundSong: Track = search.tracks[0];
-            serverQueue.queue.push({
-                title: foundSong.title,
-                author: foundSong.author,
-                duration: foundSong.duration,
-                uri: foundSong.uri,
-                thumbnail: foundSong.displayThumbnail('hqdefault'),
+            let data = await node.rest.resolve(message.content, 'youtube');
+            if (!data) return;
+            const resolvedTrack: any = data.tracks.shift();
+            const song: Song = {
+                author: resolvedTrack.info.author,
+                duration: resolvedTrack.info.length,
+                uri: resolvedTrack.info.uri,
+                title: resolvedTrack.info.title,
                 requester: message.author.id,
-            });
-            musicToPlay.push(foundSong);
+                thumbnail: `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`,
+                track: resolvedTrack.track,
+            };
+            serverQueue.queue.push(song);
         }
 
         const guildId = message.guild.id;
         if (serverQueue.queue.length > 1) await updateQueueMesg(message.channel as TextChannel, serverQueue);
         serverQueue.voiceChannelId = voiceChannel.id;
         await serverQueue.save();
-        player.queue.add(musicToPlay);
-
-        if (!player.playing) {
-            if (serverQueue.queue && initialServerQueueLength >= 1) {
-                const dbSongs = [];
-                player.queue.clear();
-                const currentSong = player.queue.current;
-                for (let i = 0; i < initialServerQueueLength; i++) {
-                    const searchString: string = `${serverQueue.queue[i].title} ${serverQueue.queue[i].author}`;
-                    const search = await client.manager.search(searchString);
-                    if (search) {
-                        if (i === 0) {
-                            player.queue.current = search.tracks[0];
-                        } else {
-                            dbSongs.push(search.tracks[0]);
-                        }
-                    }
-                }
-                dbSongs.push(currentSong);
-                musicToPlay.shift();
-                player.queue.add(dbSongs.concat(musicToPlay));
-            }
-            player.connect();
-            play(player, guildId, client);
+        if (!client.isPlayerActive(message.guild.id)) {
+            const player = await node.joinVoiceChannel({
+                guildID: message.guild.id,
+                voiceChannelID: voiceChannel.id,
+            });
+            player.on('error', error => {
+                console.error(error);
+                player.disconnect();
+            });
+            player.on('end', async () => {
+                const dbQueue = await Queue.findOne({ guildId: guildId });
+                if (!dbQueue) return;
+                const nowPlaying = dbQueue.queue[0];
+                dbQueue.queue.shift();
+                await dbQueue.save();
+                play(player, guildId, client, nowPlaying);
+            });
+            play(player, message.guild.id, client);
         }
     },
 };
 export = initPlay;
 
-const play = async (player: any, guildId: string, client: Client): Promise<void> => {
+const play = async (player: ShoukakuPlayer, guildId: string, client: Client, previousSong?: Song): Promise<any> => {
     const serverQueue: IQueue | null = await Queue.findOne({
         guildId: guildId,
     });
-    if (!serverQueue) return;
-    updatePlayer(client, serverQueue);
 
-    if (!player.playing && !player.paused) {
-        player.play();
+    if (!serverQueue) return;
+    if (serverQueue.isLooped && previousSong) {
+        serverQueue.queue.unshift(previousSong);
+        await serverQueue.save();
     }
+    updatePlayer(client, serverQueue, player);
+    if (serverQueue.queue.length === 0) {
+        player.disconnect();
+        return;
+    }
+    await player.playTrack(serverQueue.queue[0].track);
 };

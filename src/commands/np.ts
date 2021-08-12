@@ -25,42 +25,25 @@ const np: CommandOptions = {
                 .then(msg => msg.delete({ timeout: 4000 }));
         }
         const numberOfBars: number = 10;
-        const connection: VoiceConnection | null =
-            message.guild.me.voice.connection;
-        if (!connection) return;
-        const positionOfIndicator = Math.floor(
-            (connection.dispatcher.streamTime / serverQueue.queue[0].duration) *
-                numberOfBars
-        );
         let barString = '▬'.repeat(numberOfBars);
-        const replaceAt = (
-            text: string,
-            index: number,
-            replacement: string
-        ) => {
-            return (
-                text.substr(0, index) +
-                replacement +
-                text.substr(index + replacement.length)
-            );
+        const replaceAt = (text: string, index: number, replacement: string) => {
+            return text.substr(0, index) + replacement + text.substr(index + replacement.length);
         };
+
+        const player = client.getPlayer(message.guild.id);
+        if (!player) return;
         const durationOfSong: number = serverQueue.queue[0].duration;
-        const durationOfStream: number = connection.dispatcher.streamTime;
+        const durationOfStream: number = player.position;
+        const positionOfIndicator = Math.floor((durationOfStream / serverQueue.queue[0].duration) * numberOfBars);
 
         const nowPlayingEmbed = new MessageEmbed()
             .setColor('#ff100c')
             .setDescription(
-                `Timeline:\n${replaceAt(
-                    barString,
-                    positionOfIndicator,
-                    '●'
-                )}\n${durationHandler(durationOfStream)}/${durationHandler(
-                    durationOfSong
-                )}`
+                `Timeline:\n${replaceAt(barString, positionOfIndicator, '●')}\n${durationHandler(
+                    durationOfStream
+                )}/${durationHandler(durationOfSong)}`
             );
-        return await message.channel
-            .send(nowPlayingEmbed)
-            .then(async msg => await msg.delete({ timeout: 4000 }));
+        return await message.channel.send(nowPlayingEmbed).then(async msg => await msg.delete({ timeout: 4000 }));
     },
 };
 export = np;

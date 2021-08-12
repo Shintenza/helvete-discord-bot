@@ -1,20 +1,16 @@
 import { Queue } from './../models/queue_schema';
 import { TextChannel, User } from 'discord.js';
-import Client from './../client/Client';
+import Client from '../classes/Client';
 
 const loop = async (textChannel: TextChannel, user: User, client: Client) => {
     const serverQueue = await Queue.findOne({ guildId: textChannel.guild.id });
     if (!serverQueue) {
-        return textChannel
-            .send('Guild not found')
-            .then(msg => setTimeout(() => msg.delete(), 4000));
+        return textChannel.send('Guild not found').then(msg => setTimeout(() => msg.delete(), 4000));
     }
     const member = await textChannel.guild.members.fetch(user);
     if (!member) return;
 
-    const role = textChannel.guild.roles.cache.find(
-        role => role.name == 'HelveteDJ'
-    );
+    const role = textChannel.guild.roles.cache.find(role => role.name == 'HelveteDJ');
     let isAllowed: boolean = false;
     if (
         member.permissions.has('MANAGE_ROLES') ||
@@ -48,19 +44,12 @@ const loop = async (textChannel: TextChannel, user: User, client: Client) => {
     if (serverQueue.queue.length == 0) {
         return;
     }
-    const player = client.manager.players.get(textChannel.guild.id);
+    const player = client.getPlayer(textChannel.guild.id);
     if (!player) return;
 
     serverQueue.isLooped = !serverQueue.isLooped;
-    if (serverQueue.isLooped) {
-        player.setTrackRepeat(true);
-    } else {
-        player.setTrackRepeat(false);
-    }
     let status: string = serverQueue.isLooped ? 'on' : 'off';
-    await textChannel
-        .send(`Looping is: ${status}`)
-        .then(msg => setTimeout(() => msg.delete(), 4000));
+    await textChannel.send(`Looping is: ${status}`).then(msg => setTimeout(() => msg.delete(), 4000));
     await serverQueue.save();
     return;
 };

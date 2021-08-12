@@ -1,15 +1,21 @@
 import { Message, TextChannel, User } from 'discord.js';
 import { Queue } from '../models/queue_schema';
-import updateQueueMesg from './updateQueueMsg';
-import Client from './../client/Client';
+import Client from '../classes/Client';
 
 const skip = async (textChannel: TextChannel, user: User, client: Client) => {
     const serverQueue = await Queue.findOne({ guildId: textChannel.guild.id });
+
     if (!serverQueue) {
         return textChannel.send('Guild not found').then(msg => setTimeout(() => msg.delete(), 4000));
     }
+
     const member = await textChannel.guild.members.fetch(user);
     if (!member) return;
+
+    if (serverQueue.voiceChannelId) {
+        if (member.voice.channel?.id !== serverQueue.voiceChannelId) return;
+    }
+
     const role = textChannel.guild.roles.cache.find(role => role.name == 'HelveteDJ');
     let isAllowed: boolean = false;
     if (
@@ -24,7 +30,7 @@ const skip = async (textChannel: TextChannel, user: User, client: Client) => {
             isAllowed = true;
         }
     }
-    if (serverQueue.queue[0].requestedBy === member.user.id) {
+    if (serverQueue.queue[0].requester === member.user.id) {
         isAllowed = true;
     }
 
@@ -44,13 +50,10 @@ const skip = async (textChannel: TextChannel, user: User, client: Client) => {
                 .then(msg => setTimeout(() => msg.delete(), 4000));
         }
     }
-    const player = client.manager.players.get(textChannel.guild.id);
+
+    const player = client.getPlayer(textChannel.guild.id);
     if (!player) return;
-    if (player.trackRepeat) {
-        serverQueue.isLooped = false;
-    }
-    player.stop();
-    await serverQueue.save();
+    await player.stopTrack();
     return;
 };
 export default skip;

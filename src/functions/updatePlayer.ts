@@ -2,7 +2,8 @@ import { Client, TextChannel, Message, GuildMember } from 'discord.js';
 import { IQueue } from '../models/queue_schema';
 import Player from '../models/player_schema';
 import updateQueueMesg from '../functions/updateQueueMsg';
-const updatePlayer = async (client: Client, serverQueue: IQueue): Promise<void> => {
+import { ShoukakuPlayer } from 'shoukaku';
+const updatePlayer = async (client: Client, serverQueue: IQueue, player: ShoukakuPlayer): Promise<void> => {
     const bannerLink = process.env.BANNER_LINK;
     if (!bannerLink) throw 'u have to change the banner env';
     const guild = client.guilds.cache.get(serverQueue.guildId);
@@ -29,7 +30,7 @@ const updatePlayer = async (client: Client, serverQueue: IQueue): Promise<void> 
         }
         await textChannel.send(new Player()).then(msg => (serverQueue.playerMessageId = msg.id));
         await serverQueue.save();
-        return updatePlayer(client, serverQueue);
+        return updatePlayer(client, serverQueue, player);
     }
     //if playerEmbedMessage is deleted, this if brings it back
     if (!playerEmbedMessage) {
@@ -41,7 +42,11 @@ const updatePlayer = async (client: Client, serverQueue: IQueue): Promise<void> 
             await queueEmbedMessage.delete();
         }
         await serverQueue.save();
-        return updatePlayer(client, serverQueue);
+        return updatePlayer(client, serverQueue, player);
+    }
+    if (serverQueue.queue.length === 0) {
+        playerEmbedMessage.edit(new Player());
+        return;
     }
     //updates queue
     if (serverQueue.queue.length >= 1) {
