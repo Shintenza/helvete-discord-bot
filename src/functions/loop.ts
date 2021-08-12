@@ -49,7 +49,7 @@ const loop = async (textChannel: TextChannel, user: User, client: Client) => {
 
     serverQueue.isLooped = !serverQueue.isLooped;
     let status: string = serverQueue.isLooped ? 'on' : 'off';
-    await textChannel.send(`Looping is: ${status}`).then(msg => setTimeout(() => msg.delete(), 4000));
+    await textChannel.send(`**Looping is**: ${status}`).then(msg => setTimeout(() => msg.delete(), 4000));
     await serverQueue.save();
     return;
 };
