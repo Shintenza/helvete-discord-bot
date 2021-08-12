@@ -1,7 +1,7 @@
 import CommandOptions from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
-import updateQueueMsg from './../functions/updateQueueMsg';
+import updateQueueMsg from '../utils/updateQueueMsg';
 import Song from '../models/song_schema';
 
 const move: CommandOptions = {
@@ -26,23 +26,15 @@ const move: CommandOptions = {
             }
         }
         if (serverQueue.queue.length <= 1) {
-            return await message.channel
-                .send('There is nothing to move')
-                .then(msg => msg.delete({ timeout: 4000 }));
+            return await message.channel.send('There is nothing to move').then(msg => msg.delete({ timeout: 4000 }));
         }
-        if (
-            parseInt(args[0]) >= serverQueue.queue.length ||
-            parseInt(args[0]) == 0
-        ) {
+        if (parseInt(args[0]) >= serverQueue.queue.length || parseInt(args[0]) == 0) {
             return await message.channel
                 .send('You have to type the right number')
                 .then(msg => msg.delete({ timeout: 4000 }));
         }
         if (args[1]) {
-            if (
-                parseInt(args[1]) >= serverQueue.queue.length ||
-                parseInt(args[1]) == 0
-            ) {
+            if (parseInt(args[1]) >= serverQueue.queue.length || parseInt(args[1]) == 0) {
                 return await message.channel
                     .send('You have to type the right number')
                     .then(msg => msg.delete({ timeout: 4000 }));

@@ -1,7 +1,7 @@
 import { Client, TextChannel, Message, GuildMember } from 'discord.js';
 import { IQueue } from '../models/queue_schema';
 import Player from '../models/player_schema';
-import updateQueueMesg from '../functions/updateQueueMsg';
+import updateQueueMesg from './updateQueueMsg';
 import { ShoukakuPlayer } from 'shoukaku';
 const updatePlayer = async (client: Client, serverQueue: IQueue, player: ShoukakuPlayer): Promise<void> => {
     const bannerLink = process.env.BANNER_LINK;

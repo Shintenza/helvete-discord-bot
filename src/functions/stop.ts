@@ -1,7 +1,7 @@
 import { Message, TextChannel, User } from 'discord.js';
 import Client from './../classes/Client';
 import { Queue } from '../models/queue_schema';
-import updateQueueMesg from './updateQueueMsg';
+import updateQueueMesg from '../utils/updateQueueMsg';
 
 const stop = async (textChannel: TextChannel, user: User, client: Client) => {
     const serverQueue = await Queue.findOne({ guildId: textChannel.guild.id });

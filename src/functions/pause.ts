@@ -1,6 +1,6 @@
 import { Message, TextChannel, User } from 'discord.js';
 import { Queue } from '../models/queue_schema';
-import updateQueueMesg from './updateQueueMsg';
+import updateQueueMesg from '../utils/updateQueueMsg';
 import Client from '../classes/Client';
 
 const pause = async (textChannel: TextChannel, user: User, client: Client) => {

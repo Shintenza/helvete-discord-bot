@@ -2,7 +2,7 @@ import { VoiceConnection } from 'discord.js';
 import CommandOptions from '../types';
 import { MessageEmbed } from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
-import durationHandler from './../functions/durationHandler';
+import durationHandler from '../utils/durationHandler';
 
 const np: CommandOptions = {
     name: 'np',

@@ -3,11 +3,13 @@ import { Message, StreamDispatcher, VoiceConnection, TextChannel, User, MessageE
 import Client from '../classes/Client';
 import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
-import updateQueueMesg from '../functions/updateQueueMsg';
+import updateQueueMesg from '../utils/updateQueueMsg';
 import Track from '../models/track_schema';
 import Song from '../models/song_schema';
-import updatePlayer from '../functions/updatePlayer';
+import updatePlayer from '../utils/updatePlayer';
 import { ShoukakuPlayer, ShoukakuSocket, ShoukakuTrack } from 'shoukaku';
+import { getPreview } from 'spotify-url-info';
+import updateQueue from '../utils/updateQueue';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
 
@@ -84,23 +86,30 @@ const initPlay: CommandOptions = {
         // });
         //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
         let musicToPlay: Array<Song> = [];
-        if (message.content.includes('penis') || message.content.split(' ')[0] == `${prefix}bmp`) {
-        } else if (message.content.includes('https://www.chuj.com')) {
-            // toPlay = message.content.split(' ')[0];
-        } else {
-            let data = await node.rest.resolve(message.content, 'youtube');
+        if (message.content.includes('list')) {
+            const data = await node.rest.resolve(message.content.split(' ')[0]);
+            if (!data) return;
+            data.tracks.map((resolvedTrack: any) => {
+                updateQueue(message, resolvedTrack, serverQueue);
+            });
+        } else if (message.content.includes('open.spotify.com/track')) {
+            const spotifyTrack = await getPreview(message.content.split(' ')[0]).catch(_err => undefined);
+            if (!spotifyTrack) {
+                return message.channel
+                    .send('Spotify song not found')
+                    .then(msg => msg.delete({ timeout: 4000 }))
+                    .catch(err => console.log(err));
+            }
+            const searchString = `${spotifyTrack.title} ${spotifyTrack.artist}`;
+            const data = await node.rest.resolve(searchString, 'youtube');
             if (!data) return;
             const resolvedTrack: any = data.tracks.shift();
-            const song: Song = {
-                author: resolvedTrack.info.author,
-                duration: resolvedTrack.info.length,
-                uri: resolvedTrack.info.uri,
-                title: resolvedTrack.info.title,
-                requester: message.author.id,
-                thumbnail: `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`,
-                track: resolvedTrack.track,
-            };
-            serverQueue.queue.push(song);
+            updateQueue(message, resolvedTrack, serverQueue);
+        } else {
+            const data = await node.rest.resolve(message.content, 'youtube');
+            if (!data) return;
+            const resolvedTrack: any = data.tracks.shift();
+            updateQueue(message, resolvedTrack, serverQueue);
         }
 
         const guildId = message.guild.id;

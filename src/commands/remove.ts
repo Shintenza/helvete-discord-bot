@@ -1,7 +1,7 @@
 import CommandOptions from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
-import updateQueueMsg from './../functions/updateQueueMsg';
+import updateQueueMsg from '../utils/updateQueueMsg';
 
 const remove: CommandOptions = {
     name: 'remove',

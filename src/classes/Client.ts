@@ -5,7 +5,7 @@ import CommandOptions from '../types';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import { Queue } from './../models/queue_schema';
-import antispam from '../functions/antispam';
+import antispam from '../utils/antispam';
 
 import stop from './../functions/stop';
 import skip from './../functions/skip';
