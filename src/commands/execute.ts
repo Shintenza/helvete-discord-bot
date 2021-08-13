@@ -1,14 +1,13 @@
-import { Message, StreamDispatcher, VoiceConnection, TextChannel, User, MessageEmbed, GuildMember } from 'discord.js';
+import { TextChannel, User, MessageEmbed } from 'discord.js';
 
 import Client from '../classes/Client';
 import CommandOptions from '../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../utils/updateQueueMsg';
-import Track from '../models/track_schema';
 import Song from '../models/song_schema';
 import updatePlayer from '../utils/updatePlayer';
 import { ShoukakuPlayer, ShoukakuSocket, ShoukakuTrack } from 'shoukaku';
-import { getPreview } from 'spotify-url-info';
+import { getPreview, getTracks } from 'spotify-url-info';
 import updateQueue from '../utils/updateQueue';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
@@ -92,6 +91,24 @@ const initPlay: CommandOptions = {
             data.tracks.map((resolvedTrack: any) => {
                 updateQueue(message, resolvedTrack, serverQueue);
             });
+        } else if (message.content.includes('open.spotify.com/album')) {
+            const spotifyTracks = await getTracks(message.content.split(' ')[0]).catch(_err => undefined);
+            if (!spotifyTracks) {
+                return message.channel
+                    .send('Spotify album/playlist not found')
+                    .then(msg => msg.delete({ timeout: 4000 }))
+                    .catch(err => console.log(err));
+            }
+            spotifyTracks.map(track => {
+                const songToResolve = {
+                    title: track.name,
+                    author: track.artists ? track.artists[0].name : '',
+                    duration: track.duration_ms,
+                    requester: message.author.id,
+                    resolved: false,
+                };
+                serverQueue.queue.push(songToResolve);
+            });
         } else if (message.content.includes('open.spotify.com/track')) {
             const spotifyTrack = await getPreview(message.content.split(' ')[0]).catch(_err => undefined);
             if (!spotifyTrack) {
@@ -131,15 +148,21 @@ const initPlay: CommandOptions = {
                 const nowPlaying = dbQueue.queue[0];
                 dbQueue.queue.shift();
                 await dbQueue.save();
-                play(player, guildId, client, nowPlaying);
+                play(player, guildId, client, node, nowPlaying);
             });
-            play(player, message.guild.id, client);
+            play(player, message.guild.id, client, node);
         }
     },
 };
 export = initPlay;
 
-const play = async (player: ShoukakuPlayer, guildId: string, client: Client, previousSong?: Song): Promise<any> => {
+const play = async (
+    player: ShoukakuPlayer,
+    guildId: string,
+    client: Client,
+    node: ShoukakuSocket,
+    previousSong?: Song
+): Promise<any> => {
     const serverQueue: IQueue | null = await Queue.findOne({
         guildId: guildId,
     });
@@ -148,6 +171,16 @@ const play = async (player: ShoukakuPlayer, guildId: string, client: Client, pre
     if (serverQueue.isLooped && previousSong) {
         serverQueue.queue.unshift(previousSong);
         await serverQueue.save();
+    }
+    if (serverQueue.queue.length > 0 && !serverQueue.queue[0].resolved) {
+        const searchString = `${serverQueue.queue[0].title} ${serverQueue.queue[0].author}`;
+        const data = await node.rest.resolve(searchString, 'youtube');
+        if (!data) return;
+        const resolvedTrack: any = data.tracks.shift();
+        serverQueue.queue[0].uri = resolvedTrack.info.uri;
+        serverQueue.queue[0].thumbnail = `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`;
+        serverQueue.queue[0].track = resolvedTrack.track;
+        serverQueue.queue[0].resolved = true;
     }
     updatePlayer(client, serverQueue, player);
     if (serverQueue.queue.length === 0) {

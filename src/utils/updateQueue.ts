@@ -11,6 +11,7 @@ const updateQueue = (message: Message, resolvedTrack: any, serverQueue: IQueue) 
         requester: message.author.id,
         thumbnail: `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`,
         track: resolvedTrack.track,
+        resolved: true,
     };
     serverQueue.queue.push(song);
 };

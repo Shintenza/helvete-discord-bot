@@ -1,5 +1,3 @@
-import { ShoukakuTrack } from 'shoukaku';
-
 interface Song {
     title: string;
     author: string;
@@ -8,5 +6,6 @@ interface Song {
     thumbnail: string;
     requester: string;
     track: string;
+    resolved: boolean;
 }
 export default Song;
