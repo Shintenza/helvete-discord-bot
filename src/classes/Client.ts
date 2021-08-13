@@ -1,10 +1,21 @@
-import { Client, ClientOptions, Collection, Message, TextChannel, User, MessageEmbed, Guild } from 'discord.js';
+import {
+    Client,
+    ClientOptions,
+    Collection,
+    Message,
+    TextChannel,
+    User,
+    MessageEmbed,
+    Guild,
+    VoiceState,
+} from 'discord.js';
 import { Shoukaku, ShoukakuSocket } from 'shoukaku';
 import { connect } from 'mongoose';
 import CommandOptions from '../types';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import { Queue } from './../models/queue_schema';
+import { Queue, IQueue } from './../models/queue_schema';
+import Player from './../models/player_schema';
 import antispam from '../utils/antispam';
 
 import stop from './../functions/stop';
@@ -88,6 +99,60 @@ class Bot extends Client {
                 this.commands.set(command.name, command);
             }
         });
+        this.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
+            if (oldState.channelID === null || typeof oldState.channelID == 'undefined') return;
+            if (newState.id !== this.user?.id) return;
+            if (!newState.channel) {
+                await Queue.updateOne(
+                    { guildId: newState.guild.id },
+                    {
+                        $unset: { voiceChannelId: 1 },
+                        queue: [],
+                    }
+                );
+                await Queue.findOne({ guildId: newState.guild.id }, async (err: Error, serverQueue: IQueue) => {
+                    if (serverQueue) {
+                        const textChannel: TextChannel | undefined = newState.guild.channels.cache.get(
+                            serverQueue.textChannelId
+                        ) as TextChannel;
+                        if (!textChannel) return;
+                        const playerEmbedMessage: Message | undefined = await textChannel.messages
+                            .fetch(serverQueue.playerMessageId)
+                            .catch(err => undefined);
+                        if (!playerEmbedMessage) return;
+                        playerEmbedMessage.edit(new Player());
+
+                        const queueEmbedMessage = await textChannel.messages
+                            .fetch(serverQueue.queueTextMessageId)
+                            .catch(err => undefined);
+                        if (!queueEmbedMessage) return;
+                        try {
+                            queueEmbedMessage.delete();
+                        } catch (err) {
+                            console.log(err);
+                        }
+                    }
+                });
+                const player = this.getPlayer(newState.guild.id);
+                if (!player) return;
+                player.disconnect();
+                return;
+            }
+            const serverQueue = await Queue.findOne({ guildId: newState.guild.id });
+            if (!serverQueue) return;
+            const player = this.getPlayer(newState.guild.id);
+            if (!player) return;
+
+            // this part is crappy but works, that makes the music play again afterd the bot is moved
+            setTimeout(async () => {
+                await player.setPaused(true);
+                setTimeout(async () => await player.setPaused(false), this.ws.ping * 4);
+            }, this.ws.ping * 4);
+
+            serverQueue.voiceChannelId = newState.channel.id;
+            return await serverQueue.save();
+        });
+
         this.on('messageReactionAdd', async (reaction, user) => {
             if (user.bot) return;
             if (!reaction.message.guild) return;
