@@ -26,7 +26,7 @@ dotenv.config();
 class Bot extends Client {
     public token: string;
     public commands = new Collection<string, Command>();
-    private initializedGuilds: string[] = [];
+    public initializedGuilds: string[] = [];
     private textChannelId = new Map();
     private prefix: string = process.env.PREFIX || '';
     public cooldowns = new Collection<string, Map<string, UserCooldown>>();
@@ -111,6 +111,9 @@ class Bot extends Client {
                     serverQueue.blockedUsers.map(blockedUser => {
                         this.blockedUsers.push(blockedUser);
                     });
+                    if (serverQueue.textChannelId) {
+                        this.initializedGuilds.push(serverQueue.guildId);
+                    }
                 }
             });
             await autoUnblock(this);
@@ -174,16 +177,13 @@ class Bot extends Client {
             reactionHandler(this, reaction, user);
         });
         this.on('message', async (message: Message) => {
-            console.log(`${message.author.username} ${message.content}`);
             if (!this.token) return;
             if (message.author.bot) return;
             if (!message.guild) return;
-            if (!this.initializedGuilds.includes(message.guild.id)) {
-                const serverQueue = await Queue.findOne({ guildId: message.guild.id });
-                if (serverQueue) this.initializedGuilds.push(message.guild.id);
-            }
+
             const [cmd, ...args] = message.content.slice(this.prefix.length).split(/ +/);
 
+            console.log(this.initializedGuilds);
             if (!this.initializedGuilds.includes(message.guild.id)) {
                 if (!this.commands.has(cmd)) return;
                 if (cmd != 'init') {
@@ -192,7 +192,20 @@ class Bot extends Client {
                 console.log(`"init" command has been run on guild ${message.guild.id} - ${message.guild.name}`);
                 const command = this.commands.get(cmd);
                 if (!command) return;
-                commandLauncher(this, message, command, this.node, args);
+                return commandLauncher(this, message, command, this.node, args);
+            } else if (this.initializedGuilds.includes(message.guild.id) && cmd == 'init') {
+                const serverQueue = await Queue.findOne({ guildId: message.guild.id });
+                if (!serverQueue) return;
+                const textChannelId = serverQueue.textChannelId;
+
+                const doesChannelExist = message.guild.channels.cache.get(textChannelId);
+                if (doesChannelExist) {
+                    return message.reply('You cannot do this, my channel already exists!');
+                } else {
+                    const command = this.commands.get(cmd);
+                    if (!command) return;
+                    return commandLauncher(this, message, command, this.node, args, true);
+                }
             } else {
                 if (!this.textChannelId.has(message.guild.id)) {
                     const serverQueue = await Queue.findOne({

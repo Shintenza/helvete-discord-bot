@@ -9,7 +9,8 @@ const commandLauncher = async (
     message: Message,
     command: Command,
     node: ShoukakuSocket,
-    args: string[]
+    args: string[],
+    optional?: any
 ) => {
     if (!message.guild) return;
     if (message.author.bot) return;
@@ -93,7 +94,9 @@ const commandLauncher = async (
                 );
             }
         }
-
+        if (optional) {
+            await command.execute(message, args, client, node, optional);
+        }
         await command.execute(message, args, client, node);
     } catch (err) {
         console.log(err);

@@ -7,7 +7,7 @@ interface Command {
     cooldown: number;
     aliases?: string[];
     description?: string;
-    execute: (msg: Message, args: string[], client: Client, node: ShoukakuSocket) => unknown;
+    execute: (msg: Message, args: string[], client: Client, node: ShoukakuSocket, optional?: any) => unknown;
 }
 interface UserCooldown {
     date: Date;
