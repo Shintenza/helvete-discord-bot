@@ -3,7 +3,7 @@ class Player extends MessageEmbed {
     constructor(
         title = 'Helvete music player',
         description = 'I am playing nothing now',
-        imageUrl = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.publicdomainpictures.net%2Fpictures%2F340000%2Fvelka%2Fbrazil-flag-theme-idea-design-1588673822A7w.jpg&f=1&nofb=1'
+        imageUrl = 'https://media.discordapp.net/attachments/669893606651199488/880097037473964082/Helveteplus_to2.png?width=633&height=475'
     ) {
         super();
         this.setTitle(title);

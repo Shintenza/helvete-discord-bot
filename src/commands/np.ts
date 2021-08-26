@@ -1,11 +1,12 @@
 import { VoiceConnection } from 'discord.js';
-import CommandOptions from '../types';
+import { Command } from './../types';
 import { MessageEmbed } from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
 import durationHandler from '../utils/durationHandler';
 
-const np: CommandOptions = {
+const np: Command = {
     name: 'np',
+    cooldown: 3,
     execute: async (message, args, client) => {
         if (!message.guild) return;
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });

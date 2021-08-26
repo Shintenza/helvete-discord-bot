@@ -1,4 +1,5 @@
 import { Schema, Document, model } from 'mongoose';
+import { BlockedUser } from '../types';
 
 interface IQueue extends Document {
     guildId: string;
@@ -11,6 +12,7 @@ interface IQueue extends Document {
     volume: number;
     isPaused: boolean;
     isLooped: boolean;
+    blockedUsers: Array<BlockedUser>;
 }
 
 const QueueSchema = new Schema({
@@ -25,11 +27,11 @@ const QueueSchema = new Schema({
         type: String,
         required: true,
     },
-    queueTextMessageId:{
-        type: String
+    queueTextMessageId: {
+        type: String,
     },
     bannerMessageId: {
-        type: String
+        type: String,
     },
     voiceChannelId: {
         type: String,
@@ -44,13 +46,17 @@ const QueueSchema = new Schema({
         default: 1,
     },
     isPaused: {
-        type:Boolean,
-        default: false
+        type: Boolean,
+        default: false,
     },
     isLooped: {
         type: Boolean,
-        default: false
-    }
+        default: false,
+    },
+    blockedUsers: {
+        type: Array,
+        default: [],
+    },
 });
 
 const Queue = model<IQueue>('Queue', QueueSchema);

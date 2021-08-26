@@ -11,28 +11,26 @@ import {
 } from 'discord.js';
 import { Shoukaku, ShoukakuSocket } from 'shoukaku';
 import { connect } from 'mongoose';
-import CommandOptions from '../types';
+import { BlockedUser, Command, UserCooldown } from '../types';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import { Queue, IQueue } from './../models/queue_schema';
 import Player from './../models/player_schema';
-import antispam from '../utils/antispam';
 
-import stop from './../functions/stop';
-import skip from './../functions/skip';
-import shuffle from './../functions/shuffle';
-import pause from './../functions/pause';
-import loop from './../functions/loop';
+import commandLauncher from '../utils/commandLauncher';
+import autoUnblock from '../utils/autoUnblock';
+import reactionHandler from '../utils/reactionHandler';
 
 dotenv.config();
 
 class Bot extends Client {
     public token: string;
-    public commands = new Collection<string, CommandOptions>();
+    public commands = new Collection<string, Command>();
     private initializedGuilds: string[] = [];
     private textChannelId = new Map();
     private prefix: string = process.env.PREFIX || '';
-    private LavalinkServer = [{ name: 'shz-remote', host: '140.238.175.110', port: 2333, auth: 'youshallnotpass' }];
+    public cooldowns = new Collection<string, Map<string, UserCooldown>>();
+    public blockedUsers: Array<BlockedUser> = [];
     private ShoukakuOptions = {
         moveOnDisconnect: false,
         resumable: false,
@@ -40,7 +38,7 @@ class Bot extends Client {
         reconnectTries: 2,
         restTimeout: 10000,
     };
-    public shoukaku = new Shoukaku(this, this.LavalinkServer, this.ShoukakuOptions);
+    public shoukaku!: Shoukaku;
     public node!: ShoukakuSocket;
 
     public constructor(options?: ClientOptions) {
@@ -58,7 +56,16 @@ class Bot extends Client {
     getPlayer(guildId: string) {
         return this.shoukaku.getPlayer(guildId);
     }
-    private _setupShoukakuEvents() {
+    private _setupShoukaku() {
+        const LAVALINK_HOST = process.env.LAVALINK_HOST;
+        const LAVALINK_PORT = parseInt(process.env.LAVALINK_PORT!);
+        const LAVALINK_PASS = process.env.LAVALINK_PASS;
+        if (!LAVALINK_HOST || !LAVALINK_PORT || !LAVALINK_PASS) {
+            throw 'Mising lavalink connection credentials';
+        }
+
+        const lavalinkServer = [{ name: 'shz-remote', host: LAVALINK_HOST, port: LAVALINK_PORT, auth: LAVALINK_PASS }];
+        this.shoukaku = new Shoukaku(this, lavalinkServer, this.ShoukakuOptions);
         this.shoukaku.on('ready', name => {
             console.log(`Lavalink ${name}: Ready!`);
             this.node = this.shoukaku.getNode();
@@ -98,6 +105,16 @@ class Bot extends Client {
                 const command = await import(`./../commands/${file}`);
                 this.commands.set(command.name, command);
             }
+            this.guilds.cache.forEach(async guild => {
+                const serverQueue = await Queue.findOne({ guildId: guild.id });
+                if (serverQueue) {
+                    serverQueue.blockedUsers.map(blockedUser => {
+                        this.blockedUsers.push(blockedUser);
+                    });
+                }
+            });
+            await autoUnblock(this);
+            this.setInterval(() => autoUnblock(this), 1000 * 60 * 10);
         });
         this.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
             if (oldState.channelID === null || typeof oldState.channelID == 'undefined') return;
@@ -154,53 +171,28 @@ class Bot extends Client {
         });
 
         this.on('messageReactionAdd', async (reaction, user) => {
-            if (user.bot) return;
-            if (!reaction.message.guild) return;
-            const serverQueue = await Queue.findOne({
-                guildId: reaction.message.guild.id,
-            });
-            if (!serverQueue) return;
-            if (reaction.message.id != serverQueue.playerMessageId) return;
-            if (reaction.emoji.name == '⏹️') {
-                console.log('stop');
-                stop(reaction.message.channel as TextChannel, user as User, this);
-            } else if (reaction.emoji.name == '⏭️') {
-                console.log('skip');
-                skip(reaction.message.channel as TextChannel, user as User, this);
-            } else if (reaction.emoji.name == '⏯️') {
-                console.log('pause');
-                pause(reaction.message.channel as TextChannel, user as User, this);
-            } else if (reaction.emoji.name == '🔀') {
-                console.log('shuffle');
-                shuffle(reaction.message.channel as TextChannel, user as User);
-            } else if (reaction.emoji.name == '🔄') {
-                console.log('loop');
-                loop(reaction.message.channel as TextChannel, user as User, this);
-            }
-            reaction.users.remove(user as User);
+            reactionHandler(this, reaction, user);
         });
         this.on('message', async (message: Message) => {
+            console.log(`${message.author.username} ${message.content}`);
             if (!this.token) return;
             if (message.author.bot) return;
             if (!message.guild) return;
-
             if (!this.initializedGuilds.includes(message.guild.id)) {
                 const serverQueue = await Queue.findOne({ guildId: message.guild.id });
                 if (serverQueue) this.initializedGuilds.push(message.guild.id);
             }
-            const [command, ...args] = message.content.slice(this.prefix.length).split(/ +/);
-            console.log(this.initializedGuilds);
+            const [cmd, ...args] = message.content.slice(this.prefix.length).split(/ +/);
+
             if (!this.initializedGuilds.includes(message.guild.id)) {
-                if (!this.commands.has(command)) return;
-                if (command != 'init') {
+                if (!this.commands.has(cmd)) return;
+                if (cmd != 'init') {
                     return message.channel.send(`U have to use ${this.prefix}init first!`);
                 }
-                try {
-                    this.commands.get(command)?.execute(message, args, this, this.node);
-                } catch (error) {
-                    console.error(error);
-                    message.reply('there was an error trying to execute that command!');
-                }
+                console.log(`"init" command has been run on guild ${message.guild.id} - ${message.guild.name}`);
+                const command = this.commands.get(cmd);
+                if (!command) return;
+                commandLauncher(this, message, command, this.node, args);
             } else {
                 if (!this.textChannelId.has(message.guild.id)) {
                     const serverQueue = await Queue.findOne({
@@ -212,27 +204,24 @@ class Bot extends Client {
                     });
                 }
                 const validTextChannel = this.textChannelId.get(message.guild.id);
-                if (message.channel.id != validTextChannel.textChannel) {
+                if (message.channel.id != validTextChannel.textChannel) return;
+                const isBlocked = this.blockedUsers.filter(blockedUser => blockedUser.id === message.author.id);
+                if (isBlocked.length >= 1) {
+                    try {
+                        message.delete();
+                    } catch (err) {
+                        console.log(err);
+                    }
                     return;
                 }
-                const usersMap: Map<string, any> = new Map();
-                const limit = 7;
-                const diff = 5000;
-                const time = 1000;
-                antispam(message, usersMap, time, diff, limit);
-                if (message.content.startsWith(this.prefix) && !message.content.includes('bmp')) {
-                    try {
-                        await message.delete();
-                        this.commands.get(command)?.execute(message, args, this, this.node);
-                    } catch (error) {
-                        return console.log(error);
-                    }
+                if (message.content.startsWith(this.prefix)) {
+                    const command = this.commands.get(cmd);
+                    if (!command) return;
+                    commandLauncher(this, message, command, this.node, args);
                 } else {
-                    try {
-                        this.commands.get('play')?.execute(message, args, this, this.node);
-                    } catch (err) {
-                        return;
-                    }
+                    const command = this.commands.get('play');
+                    if (!command) return;
+                    commandLauncher(this, message, command, this.node, args);
                 }
             }
         });
@@ -256,7 +245,7 @@ class Bot extends Client {
         }
         this._dbConnect();
         this._setupClientEvents();
-        this._setupShoukakuEvents();
+        this._setupShoukaku();
         return super.login();
     }
 }

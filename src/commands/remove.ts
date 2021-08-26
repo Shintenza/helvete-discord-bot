@@ -1,10 +1,11 @@
-import CommandOptions from './../types';
+import { Command } from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
 import updateQueueMsg from '../utils/updateQueueMsg';
 
-const remove: CommandOptions = {
+const remove: Command = {
     name: 'remove',
+    cooldown: 3,
     execute: async (message: Message, args, client) => {
         console.log(args);
         if (!message.guild) return;

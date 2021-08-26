@@ -1,9 +1,10 @@
-import CommandOptions from './../types';
+import { Command } from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message } from 'discord.js';
 
-const setVolume: CommandOptions = {
+const setVolume: Command = {
     name: 'volume',
+    cooldown: 1,
     execute: async (message: Message, args: string[], client) => {
         // const serverQueue = await Queue.findOne({ guildId: message.guild?.id });
         // if (!message.guild) return;

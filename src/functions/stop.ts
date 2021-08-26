@@ -11,6 +11,15 @@ const stop = async (textChannel: TextChannel, user: User, client: Client) => {
     const member = await textChannel.guild.members.fetch(user);
     if (!member) return;
 
+    if (!member?.voice.channel) return;
+    if (serverQueue.voiceChannelId) {
+        if (member.voice.channel?.id !== serverQueue.voiceChannelId) {
+            return await textChannel
+                .send('You have to be in the same voice channel')
+                .then(msg => setTimeout(() => msg.delete(), 4000));
+        }
+    }
+
     const role = textChannel.guild.roles.cache.find(role => role.name == 'HelveteDJ');
     let isAllowed: boolean = false;
     if (
@@ -31,17 +40,6 @@ const stop = async (textChannel: TextChannel, user: User, client: Client) => {
             .then(msg => setTimeout(() => msg.delete(), 4000));
     }
 
-    if (!member?.voice.channel)
-        return await textChannel
-            .send('You have to join a voice channel in order to do this')
-            .then(msg => setTimeout(() => msg.delete(), 4000));
-    if (serverQueue.voiceChannelId) {
-        if (member.voice.channel?.id !== serverQueue.voiceChannelId) {
-            return await textChannel
-                .send('You have to be in the same voice channel')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-    }
     const player = client.getPlayer(textChannel.guild.id);
     if (!player) return;
     serverQueue.queue = [];

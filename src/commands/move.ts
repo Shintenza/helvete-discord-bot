@@ -1,11 +1,12 @@
-import CommandOptions from './../types';
+import { Command } from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
 import updateQueueMsg from '../utils/updateQueueMsg';
 import Song from '../models/song_schema';
 
-const move: CommandOptions = {
+const move: Command = {
     name: 'move',
+    cooldown: 3,
     execute: async (message: Message, args: string[]) => {
         if (!message.guild) return;
         const serverQueue = await Queue.findOne({ guildId: message.guild?.id });

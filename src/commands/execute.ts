@@ -1,7 +1,7 @@
 import { TextChannel, User, MessageEmbed } from 'discord.js';
 
 import Client from '../classes/Client';
-import CommandOptions from '../types';
+import { Command } from './../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../utils/updateQueueMsg';
 import Song from '../models/song_schema';
@@ -12,15 +12,11 @@ import updateQueue from '../utils/updateQueue';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'u have to change the banner env';
 
-const initPlay: CommandOptions = {
+const initPlay: Command = {
     name: 'play',
+    cooldown: 5,
     execute: async (message, args, client, node: ShoukakuSocket) => {
         if (!message.guild) return;
-        try {
-            await message.delete();
-        } catch (err) {
-            console.log(err);
-        }
 
         const serverQueue: IQueue | null = await Queue.findOne({
             guildId: message.guild!.id,
@@ -55,6 +51,7 @@ const initPlay: CommandOptions = {
                     .then(msg => setTimeout(() => msg.delete(), 4000));
             }
         }
+
         if (!serverQueue.bannerMessageId) {
             const textChannel: TextChannel | undefined = message.guild.channels.cache.get(
                 serverQueue.textChannelId
@@ -79,12 +76,6 @@ const initPlay: CommandOptions = {
                 await textChannel.send(bannerLink).then(msg => (serverQueue.bannerMessageId = msg.id));
             }
         }
-
-        // player.on('end', async () => {
-
-        // });
-        //code's below purpose is to decide what user want to do (search a song, play a playlist etc.)
-        let musicToPlay: Array<Song> = [];
         if (message.content.includes('list')) {
             const data = await node.rest.resolve(message.content.split(' ')[0]);
             if (!data) return;
@@ -181,6 +172,8 @@ const play = async (
         serverQueue.queue[0].thumbnail = `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`;
         serverQueue.queue[0].track = resolvedTrack.track;
         serverQueue.queue[0].resolved = true;
+        serverQueue.queue[0].title = resolvedTrack.info.title;
+        serverQueue.queue[0].duration = resolvedTrack.info.length;
     }
     updatePlayer(client, serverQueue, player);
     if (serverQueue.queue.length === 0) {
