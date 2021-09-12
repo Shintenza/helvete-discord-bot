@@ -27,7 +27,7 @@ class Bot extends Client {
     public token: string;
     public commands = new Collection<string, Command>();
     public initializedGuilds: string[] = [];
-    private textChannelId = new Map();
+    public textChannelId = new Map();
     private prefix: string = process.env.PREFIX || '';
     public cooldowns = new Collection<string, Map<string, UserCooldown>>();
     public blockedUsers: Array<BlockedUser> = [];

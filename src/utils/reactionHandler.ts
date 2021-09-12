@@ -16,7 +16,10 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
     });
     if (!serverQueue) return;
     const isBlocked = client.blockedUsers.filter(blockedUser => blockedUser.id === user.id);
-    if (isBlocked.length >= 1) {
+    
+    const validTextChannel = client.textChannelId.get(reaction.message.guild.id);
+    if(!validTextChannel) return;
+    if (isBlocked.length >= 1 && reaction.message.channel.id === validTextChannel.textChannel) {
         try {
             reaction.users.remove(user as User);
         } catch (err) {
@@ -24,12 +27,13 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
         }
         return;
     }
-
-    try {
-        reaction.users.remove(user as User);
-    } catch (err) {
-        console.log(err);
-    }
+    if(reaction.message.channel.id === validTextChannel.textChannel) {
+        try {
+           reaction.users.remove(user as User);
+        } catch (err) {
+            console.log(err);
+        }
+    } else return
 
     const guildCooldown = client.cooldowns.get(reaction.message.guild.id);
     const userCooldown = guildCooldown ? guildCooldown.get(`reaction_${user.id}`) : undefined;
