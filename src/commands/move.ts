@@ -2,7 +2,7 @@ import { Command } from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
 import updateQueueMsg from '../utils/updateQueueMsg';
-import Song from '../models/song_schema';
+import { Song } from './../types';
 
 const move: Command = {
     name: 'move',

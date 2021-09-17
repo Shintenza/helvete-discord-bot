@@ -1,16 +1,12 @@
 import { TextChannel, User, MessageEmbed } from 'discord.js';
-
-import Client from '../classes/Client';
 import { Command } from './../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../utils/updateQueueMsg';
-import Song from '../models/song_schema';
-import updatePlayer from '../utils/updatePlayer';
-import { ShoukakuPlayer, ShoukakuSocket, ShoukakuTrack } from 'shoukaku';
+import { ShoukakuSocket } from 'shoukaku';
 import { getPreview, getTracks } from 'spotify-url-info';
 import updateQueue from '../utils/updateQueue';
-const bannerLink = process.env.BANNER_LINK;
-if (!bannerLink) throw 'u have to change the banner env';
+import play from './../utils/play';
+import setPlayerEvents from '../utils/setPlayerEvents';
 
 const initPlay: Command = {
     name: 'play',
@@ -22,14 +18,8 @@ const initPlay: Command = {
             guildId: message.guild!.id,
         });
 
-        const prefix = process.env.PREFIX; //requires refactoring
-
-        // general checking
-
         if (!serverQueue) return;
         if (message.channel.id !== serverQueue.textChannelId) return;
-
-        const initialServerQueueLength = serverQueue.queue.length;
 
         if (!message.member?.voice.channel)
             return await message.channel
@@ -73,7 +63,7 @@ const initPlay: Command = {
                     console.log(err);
                 }
 
-                await textChannel.send(bannerLink).then(msg => (serverQueue.bannerMessageId = msg.id));
+                await textChannel.send(client.bannerUrl).then(msg => (serverQueue.bannerMessageId = msg.id));
             }
         }
         if (message.content.includes('list')) {
@@ -129,56 +119,9 @@ const initPlay: Command = {
                 guildID: message.guild.id,
                 voiceChannelID: voiceChannel.id,
             });
-            player.on('error', error => {
-                console.error(error);
-                player.disconnect();
-            });
-            player.on('end', async () => {
-                const dbQueue = await Queue.findOne({ guildId: guildId });
-                if (!dbQueue) return;
-                const nowPlaying = dbQueue.queue[0];
-                dbQueue.queue.shift();
-                await dbQueue.save();
-                play(player, guildId, client, node, nowPlaying);
-            });
+            setPlayerEvents(player, message.guild.id, client, node);
             play(player, message.guild.id, client, node);
         }
     },
 };
 export = initPlay;
-
-const play = async (
-    player: ShoukakuPlayer,
-    guildId: string,
-    client: Client,
-    node: ShoukakuSocket,
-    previousSong?: Song
-): Promise<any> => {
-    const serverQueue: IQueue | null = await Queue.findOne({
-        guildId: guildId,
-    });
-
-    if (!serverQueue) return;
-    if (serverQueue.isLooped && previousSong) {
-        serverQueue.queue.unshift(previousSong);
-        await serverQueue.save();
-    }
-    if (serverQueue.queue.length > 0 && !serverQueue.queue[0].resolved) {
-        const searchString = `${serverQueue.queue[0].title} ${serverQueue.queue[0].author}`;
-        const data = await node.rest.resolve(searchString, 'youtube');
-        if (!data) return;
-        const resolvedTrack: any = data.tracks.shift();
-        serverQueue.queue[0].uri = resolvedTrack.info.uri;
-        serverQueue.queue[0].thumbnail = `http://i3.ytimg.com/vi/${resolvedTrack.info.identifier}/maxresdefault.jpg`;
-        serverQueue.queue[0].track = resolvedTrack.track;
-        serverQueue.queue[0].resolved = true;
-        serverQueue.queue[0].title = resolvedTrack.info.title;
-        serverQueue.queue[0].duration = resolvedTrack.info.length;
-    }
-    updatePlayer(client, serverQueue, player);
-    if (serverQueue.queue.length === 0) {
-        player.disconnect();
-        return;
-    }
-    await player.playTrack(serverQueue.queue[0].track);
-};

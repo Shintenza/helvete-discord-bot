@@ -1,6 +1,6 @@
 import { Queue, IQueue } from './../models/queue_schema';
 import { TextChannel, User } from 'discord.js';
-import Song from './../models/song_schema';
+import { Song } from '../types';
 import updateQueueMsg from '../utils/updateQueueMsg';
 
 const shuffle = async (textChannel: TextChannel, user: User) => {

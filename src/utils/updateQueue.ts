@@ -1,6 +1,6 @@
 import { Message } from 'discord.js';
 import { IQueue } from '../models/queue_schema';
-import Song from '../models/song_schema';
+import { Song } from '../types';
 
 const updateQueue = (message: Message, resolvedTrack: any, serverQueue: IQueue) => {
     const song: Song = {

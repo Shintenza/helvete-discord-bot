@@ -11,6 +11,7 @@ import { BlockedUser } from '../types';
 const reactionHandler = async (client: Client, reaction: MessageReaction, user: User | PartialUser) => {
     if (user.bot) return;
     if (!reaction.message.guild) return;
+    // TODO remove thaht db call 
     const serverQueue = await Queue.findOne({
         guildId: reaction.message.guild.id,
     });

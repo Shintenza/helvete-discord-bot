@@ -25,10 +25,16 @@ dotenv.config();
 
 class Bot extends Client {
     public token: string;
+    public bannerUrl: string;
+    private dbConnectionString: string;
+    private lavalinkHost: string;
+    private lavalinkPort: number;
+    private lavalinkPass: string;
+
     public commands = new Collection<string, Command>();
     public initializedGuilds: string[] = [];
     public textChannelId = new Map();
-    private prefix: string = process.env.PREFIX || '';
+    public prefix: string = process.env.PREFIX || '';
     public cooldowns = new Collection<string, Map<string, UserCooldown>>();
     public blockedUsers: Array<BlockedUser> = [];
     private ShoukakuOptions = {
@@ -38,33 +44,40 @@ class Bot extends Client {
         reconnectTries: 2,
         restTimeout: 10000,
     };
-    public shoukaku!: Shoukaku;
+    public shoukaku: Shoukaku;
     public node!: ShoukakuSocket;
 
     public constructor(options?: ClientOptions) {
         super(options);
-        this.token = process.env.DISCORD_TOKEN || '';
-    }
-    isPlayerActive(guildId: string) {
-        const player = this.shoukaku.getPlayer(guildId);
-        if (player) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    getPlayer(guildId: string) {
-        return this.shoukaku.getPlayer(guildId);
-    }
-    private _setupShoukaku() {
-        const LAVALINK_HOST = process.env.LAVALINK_HOST;
-        const LAVALINK_PORT = parseInt(process.env.LAVALINK_PORT!);
-        const LAVALINK_PASS = process.env.LAVALINK_PASS;
-        if (!LAVALINK_HOST || !LAVALINK_PORT || !LAVALINK_PASS) {
-            throw 'Mising lavalink connection credentials';
-        }
+        const discordToken = process.env.DISCORD_TOKEN;
+        const dbConnectionString = process.env.DB_CONNECTION;
+        const bannerLink = process.env.BANNER_LINK;
+        const prefix = process.env.PREFIX;
+        const lavalinkHost = process.env.LAVALINK_HOST;
+        const lavalinkPort = process.env.LAVALINK_PORT;
+        const lavalinkPass = process.env.LAVALINK_PASS;
 
-        const lavalinkServer = [{ name: 'shz-remote', host: LAVALINK_HOST, port: LAVALINK_PORT, auth: LAVALINK_PASS }];
+        if (
+            !discordToken ||
+            !dbConnectionString ||
+            !bannerLink ||
+            !prefix ||
+            !lavalinkHost ||
+            !lavalinkPort ||
+            !lavalinkPass
+        )
+            throw 'Missing env vars. Check .env.example';
+        this.token = discordToken;
+        this.dbConnectionString = dbConnectionString;
+        this.bannerUrl = bannerLink;
+        this.prefix = prefix;
+        this.lavalinkHost = lavalinkHost;
+        this.lavalinkPort = parseInt(lavalinkPort);
+        this.lavalinkPass = lavalinkPass;
+
+        const lavalinkServer = [
+            { name: 'shz-remote', host: this.lavalinkHost, port: this.lavalinkPort, auth: this.lavalinkPass },
+        ];
         this.shoukaku = new Shoukaku(this, lavalinkServer, this.ShoukakuOptions);
         this.shoukaku.on('ready', name => {
             console.log(`Lavalink ${name}: Ready!`);
@@ -78,12 +91,20 @@ class Bot extends Client {
             console.warn(`Lavalink ${name}: Disconnected, Reason ${reason || 'No reason'}`)
         );
     }
-    private async _dbConnect() {
-        const db = process.env.DB_CONNECTION;
-        if (!db) {
-            throw 'chuju dawaj link do bazy';
+    isPlayerActive(guildId: string) {
+        const player = this.shoukaku.getPlayer(guildId);
+        if (player) {
+            return true;
+        } else {
+            return false;
         }
-        await connect(db, {
+    }
+    getPlayer(guildId: string) {
+        return this.shoukaku.getPlayer(guildId);
+    }
+
+    private async _dbConnect() {
+        await connect(this.dbConnectionString, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
         })
@@ -253,12 +274,8 @@ class Bot extends Client {
     }
 
     public start(): Promise<string> {
-        if (this.token == '') {
-            throw new Error('token in not provided');
-        }
         this._dbConnect();
         this._setupClientEvents();
-        this._setupShoukaku();
         return super.login();
     }
 }
