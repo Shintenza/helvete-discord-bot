@@ -25,8 +25,12 @@ const updatePlayer = async (client: Client, serverQueue: IQueue, player: Shoukak
         if (playerEmbedMessage && queueEmbedMessage) {
             serverQueue.set('playerMessageId', undefined);
             serverQueue.set('queueTextMessage', undefined);
-            await queueEmbedMessage.delete();
-            await playerEmbedMessage.delete();
+            try {
+                await queueEmbedMessage.delete();
+                await playerEmbedMessage.delete();
+            } catch (err) {
+                console.log(err);
+            }
         }
         await textChannel.send(new Player()).then(msg => (serverQueue.playerMessageId = msg.id));
         await serverQueue.save();
@@ -39,7 +43,11 @@ const updatePlayer = async (client: Client, serverQueue: IQueue, player: Shoukak
             .fetch(serverQueue.queueTextMessageId)
             .catch(err => undefined);
         if (queueEmbedMessage) {
-            await queueEmbedMessage.delete();
+            try {
+                await queueEmbedMessage.delete();
+            } catch (err) {
+                console.log(err);
+            }
         }
         await serverQueue.save();
         return updatePlayer(client, serverQueue, player);
