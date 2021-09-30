@@ -1,5 +1,5 @@
 import Client from '../classes/Client';
-import { Message, MessageEmbed } from 'discord.js';
+import { GuildChannel, Message, MessageEmbed, User } from 'discord.js';
 import { ShoukakuSocket } from 'shoukaku';
 import { BlockedUser, Command } from '../types';
 import { Queue } from '../models/queue_schema';
@@ -14,7 +14,10 @@ const commandLauncher = async (
 ) => {
     if (!message.guild) return;
     if (message.author.bot) return;
-
+    const textChannel = message.channel as GuildChannel;
+    const permissions = textChannel.permissionsFor(message.client.user as User);
+    if (!permissions) return;
+    if (!permissions.has('SEND_MESSAGES')) return;
     try {
         message.delete();
     } catch (err) {

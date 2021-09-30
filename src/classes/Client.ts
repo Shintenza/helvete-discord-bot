@@ -204,13 +204,13 @@ class Bot extends Client {
 
             const [cmd, ...args] = message.content.slice(this.prefix.length).split(/ +/);
 
-            console.log(this.initializedGuilds);
             if (!this.initializedGuilds.includes(message.guild.id)) {
                 if (!this.commands.has(cmd)) return;
                 if (cmd != 'init') {
                     return message.channel.send(`U have to use ${this.prefix}init first!`);
                 }
                 console.log(`"init" command has been run on guild ${message.guild.id} - ${message.guild.name}`);
+
                 const command = this.commands.get(cmd);
                 if (!command) return;
                 return commandLauncher(this, message, command, this.node, args);
@@ -269,7 +269,12 @@ class Bot extends Client {
                 .setDescription(
                     `Hello, I am here to play some good music but first, you need to type ${this.prefix}init`
                 );
-            infoChannel.send(helloMessage);
+            if (!infoChannel) return;
+            try {
+                infoChannel.send(helloMessage);
+            } catch (err) {
+                console.log('missing permissions to send a hello message', err);
+            }
         });
     }
 

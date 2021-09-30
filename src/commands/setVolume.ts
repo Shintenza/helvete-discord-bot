@@ -33,7 +33,8 @@ const setVolume: Command = {
         // serverQueue.volume = volumeLevel;
         // const player = client.getPlayer(message.guild.id);
         // if (!player) return;
-        // player.setVolume(0.2).then(player => console.log(player));
+        // player.setVolume(2);
+        // await player.setDistortion({ scale: 100 });
         // await message.channel.send(`Volume has been changed to: ${args[0]}`).then(msg => msg.delete({ timeout: 4000 }));
         // await serverQueue.save();
         return await message.channel.send('Not supported yet').then(msg => msg.delete({ timeout: 4000 }));
