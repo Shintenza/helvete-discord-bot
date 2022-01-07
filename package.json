@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node --trace-deprecation dist/index.js",
+    "postinstall": "tsc",
+    "watch-node": "nodemon dist/index.js",
+    "watch-ts": "tsc -w",
     "build": "tsc",
-    "watch": "tsc -w",
+    "deploy": "git add . && git commit -m Heroku && git push heroku master",
     "dev": "nodemon src/index.ts"
   },
   "keywords": [],
