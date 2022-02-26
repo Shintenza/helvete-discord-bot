@@ -2,7 +2,7 @@ import Client from './../classes/Client';
 import { Queue } from '../models/queue_schema';
 
 const autoUnblock = async (client: Client) => {
-    console.log('Auto unblock');
+    console.log('[log] auto unblock');
     client.guilds.cache.map(async guild => {
         const serverQueue = await Queue.findOneAndUpdate(
             { guildId: guild.id },

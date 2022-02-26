@@ -51,7 +51,7 @@ const skip = async (textChannel: TextChannel, user: User, client: Client) => {
 
     const player = client.getPlayer(textChannel.guild.id);
     if (!player) return;
-    await player.stopTrack();
+    await player.stop();
     return;
 };
 export default skip;

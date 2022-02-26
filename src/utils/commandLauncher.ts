@@ -1,6 +1,5 @@
 import Client from '../classes/Client';
 import { GuildChannel, Message, MessageEmbed, User } from 'discord.js';
-import { ShoukakuSocket } from 'shoukaku';
 import { BlockedUser, Command } from '../types';
 import { Queue } from '../models/queue_schema';
 
@@ -8,7 +7,6 @@ const commandLauncher = async (
     client: Client,
     message: Message,
     command: Command,
-    node: ShoukakuSocket,
     args: string[],
     optional?: any
 ) => {
@@ -37,7 +35,7 @@ const commandLauncher = async (
                         .send(
                             `<@${message.author.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or you'll be blocked`
                         )
-                        .then(msg => msg.delete({ timeout: cooldownTime * 1000 }));
+                        .then(msg => setTimeout(() => msg.delete(), cooldownTime * 1000));
                 }
                 return client.cooldowns.set(
                     message.guild.id,
@@ -53,7 +51,7 @@ const commandLauncher = async (
                 if (!userCooldown.sentSecondWarn) {
                     message.channel
                         .send(`<@${message.author.id}> you have been warned. You are blocked for 30 minutes`)
-                        .then(msg => msg.delete({ timeout: 3000 }));
+                        .then(msg => setTimeout(() => msg.delete(), 3000));
                     const serverQueue = await Queue.findOne({ guildId: message.guild.id });
                     if (serverQueue) {
                         const blockedUser: BlockedUser = {
@@ -98,16 +96,14 @@ const commandLauncher = async (
             }
         }
         if (optional) {
-            await command.execute(message, args, client, node, optional);
+            await command.execute(message, args, client, optional);
         }
-        await command.execute(message, args, client, node);
+        await command.execute(message, args, client);
     } catch (err) {
         console.log(err);
         return message.channel
-            .send(new MessageEmbed().setTitle('Error!').setDescription(err).setColor('RED'))
-            .then(msg => {
-                msg.delete({ timeout: 10000 });
-            });
+            .send( { embeds: [new MessageEmbed().setTitle('Error!').setDescription(err as string).setColor('RED')]})
+            .then(msg => setTimeout(() => msg.delete(), 10000));
     }
 };
 export default commandLauncher;

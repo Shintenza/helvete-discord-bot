@@ -1,13 +1,12 @@
 import { Message } from 'discord.js';
 import Client from './classes/Client';
-import { ShoukakuSocket } from 'shoukaku';
 
 interface Command {
     name: string;
     cooldown: number;
     aliases?: string[];
     description?: string;
-    execute: (msg: Message, args: string[], client: Client, node: ShoukakuSocket, optional?: any) => unknown;
+    execute: (msg: Message, args: string[], client: Client, optional?: any) => unknown;
 }
 interface UserCooldown {
     date: Date;

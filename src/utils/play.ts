@@ -1,14 +1,13 @@
-import { ShoukakuPlayer, ShoukakuSocket } from 'shoukaku';
 import Client from './../classes/Client';
 import { Song } from './../types';
 import { Queue } from './../models/queue_schema';
 import updatePlayer from './updatePlayer';
+import { Player } from "lavaclient";
 
 const play = async (
-    player: ShoukakuPlayer,
+    player: Player,
     guildId: string,
     client: Client,
-    node: ShoukakuSocket,
     previousSong?: Song
 ): Promise<any> => {
     const serverQueue = await Queue.findOne({
@@ -22,7 +21,7 @@ const play = async (
     }
     if (serverQueue.queue.length > 0 && !serverQueue.queue[0].resolved) {
         const searchString = `${serverQueue.queue[0].title} ${serverQueue.queue[0].author}`;
-        const data = await node.rest.resolve(searchString, 'youtube');
+        const data = await client.lavalink.rest.loadTracks(`ytsearch:${searchString}`);
         if (!data) return;
         const resolvedTrack: any = data.tracks.shift();
         serverQueue.queue[0].uri = resolvedTrack.info.uri;
@@ -32,11 +31,12 @@ const play = async (
         serverQueue.queue[0].title = resolvedTrack.info.title;
         serverQueue.queue[0].duration = resolvedTrack.info.length;
     }
-    updatePlayer(client, serverQueue, player);
+
+    updatePlayer(client, serverQueue);
     if (serverQueue.queue.length === 0) {
         player.disconnect();
         return;
     }
-    await player.playTrack(serverQueue.queue[0].track);
+    await player.play(serverQueue.queue[0].track);
 };
 export default play;

@@ -2,16 +2,16 @@ import { TextChannel, User, MessageEmbed } from 'discord.js';
 import { Command } from './../types';
 import { Queue, IQueue } from './../models/queue_schema';
 import updateQueueMesg from '../utils/updateQueueMsg';
-import { ShoukakuSocket } from 'shoukaku';
 import { getPreview, getTracks } from 'spotify-url-info';
 import updateQueue from '../utils/updateQueue';
 import play from './../utils/play';
 import setPlayerEvents from '../utils/setPlayerEvents';
+import { Player } from 'lavaclient';
 
 const initPlay: Command = {
     name: 'play',
     cooldown: 5,
-    execute: async (message, args, client, node: ShoukakuSocket) => {
+    execute: async (message, args, client) => {
         if (!message.guild) return;
 
         const serverQueue: IQueue | null = await Queue.findOne({
@@ -32,7 +32,7 @@ const initPlay: Command = {
             const errEmbed: MessageEmbed = new MessageEmbed().setDescription(
                 'I need the permissions to join and speak in your voice channel!'
             );
-            return await message.channel.send(errEmbed).then(msg => setTimeout(() => msg.delete(), 4000));
+            return await message.channel.send({embeds: [errEmbed]}).then(msg => setTimeout(() => msg.delete(), 4000));
         }
         if (serverQueue.voiceChannelId && message.guild.me?.voice.channel) {
             if (message.member.voice.channel.id !== serverQueue.voiceChannelId) {
@@ -67,7 +67,7 @@ const initPlay: Command = {
             }
         }
         if (message.content.includes('list')) {
-            const data = await node.rest.resolve(message.content.split(' ')[0]);
+            const data = await client.lavalink.rest.loadTracks(message.content.split(' ')[0]);
             if (!data) return;
             data.tracks.map((resolvedTrack: any) => {
                 updateQueue(message, resolvedTrack, serverQueue);
@@ -77,7 +77,7 @@ const initPlay: Command = {
             if (!spotifyTracks) {
                 return message.channel
                     .send('Spotify album/playlist not found')
-                    .then(msg => msg.delete({ timeout: 4000 }))
+                    .then(msg => setTimeout(()=>msg.delete(), 4000))
                     .catch(err => console.log(err));
             }
             spotifyTracks.map(track => {
@@ -95,32 +95,27 @@ const initPlay: Command = {
             if (!spotifyTrack) {
                 return message.channel
                     .send('Spotify song not found')
-                    .then(msg => msg.delete({ timeout: 4000 }))
+                    .then(msg => setTimeout(()=>msg.delete(), 4000))
                     .catch(err => console.log(err));
             }
             const searchString = `${spotifyTrack.title} ${spotifyTrack.artist}`;
-            const data = await node.rest.resolve(searchString, 'youtube');
+            const data = await client.lavalink.rest.loadTracks(`ytsearch:${searchString}`);
             if (!data) return;
-            const resolvedTrack: any = data.tracks.shift();
-            updateQueue(message, resolvedTrack, serverQueue);
+            updateQueue(message, data.tracks[0], serverQueue);
         } else {
-            const data = await node.rest.resolve(message.content, 'youtube');
+            const data = await client.lavalink.rest.loadTracks(`ytsearch:${message.content}`);
             if (!data) return;
             const resolvedTrack: any = data.tracks.shift();
             updateQueue(message, resolvedTrack, serverQueue);
         }
-
         const guildId = message.guild.id;
         if (serverQueue.queue.length > 1) await updateQueueMesg(message.channel as TextChannel, serverQueue);
         serverQueue.voiceChannelId = voiceChannel.id;
         await serverQueue.save();
         if (!client.isPlayerActive(message.guild.id)) {
-            const player = await node.joinVoiceChannel({
-                guildID: message.guild.id,
-                voiceChannelID: voiceChannel.id,
-            });
-            setPlayerEvents(player, message.guild.id, client, node);
-            play(player, message.guild.id, client, node);
+            const player = client.lavalink.createPlayer(guildId).connect(voiceChannel.id);
+            setPlayerEvents(player, guildId, client);
+            play(player, message.guild.id, client);
         }
     },
 };

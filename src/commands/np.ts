@@ -1,4 +1,3 @@
-import { VoiceConnection } from 'discord.js';
 import { Command } from './../types';
 import { MessageEmbed } from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
@@ -13,17 +12,17 @@ const np: Command = {
         if (!serverQueue) {
             return await message.channel
                 .send('There is nothing in the queue!')
-                .then(msg => msg.delete({ timeout: 4000 }));
+                .then(msg => setTimeout(() => msg.delete(), 4000));
         }
         if (serverQueue.queue.length === 0) {
             return await message.channel
                 .send('There is nothing in the queue!')
-                .then(msg => msg.delete({ timeout: 4000 }));
+                .then(msg => setTimeout(() => msg.delete(), 4000));
         }
         if (!message.guild.me?.voice) {
             return await message.channel
                 .send('I am not connected to any voice channel!')
-                .then(msg => msg.delete({ timeout: 4000 }));
+                .then(msg => setTimeout(() => msg.delete(), 4000));
         }
         const numberOfBars: number = 10;
         let barString = '▬'.repeat(numberOfBars);
@@ -34,7 +33,7 @@ const np: Command = {
         const player = client.getPlayer(message.guild.id);
         if (!player) return;
         const durationOfSong: number = serverQueue.queue[0].duration;
-        const durationOfStream: number = player.position;
+        const durationOfStream: number = player.position as number;
         const positionOfIndicator = Math.floor((durationOfStream / serverQueue.queue[0].duration) * numberOfBars);
 
         const nowPlayingEmbed = new MessageEmbed()
@@ -44,7 +43,9 @@ const np: Command = {
                     durationOfStream
                 )}/${durationHandler(durationOfSong)}`
             );
-        return await message.channel.send(nowPlayingEmbed).then(async msg => await msg.delete({ timeout: 4000 }));
+        return await message.channel
+            .send({ embeds: [nowPlayingEmbed] })
+            .then(msg => setTimeout(() => msg.delete(), 4000));
     },
 };
 export = np;

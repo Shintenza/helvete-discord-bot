@@ -15,7 +15,7 @@ const updateQueueMesg = async (channel: TextChannel, serverQueue: IQueue, del?: 
             queueEmbed.setFooter(`And ${serverQueue.queue.length - 30} more...`);
         }
         if (!serverQueue.queueTextMessageId) {
-            await channel.send(queueEmbed).then(msg => (serverQueue.queueTextMessageId = msg.id));
+            await channel.send({ embeds: [queueEmbed] }).then(msg => (serverQueue.queueTextMessageId = msg.id));
         } else {
             const textChannel: TextChannel | undefined = channel.guild!.channels.cache.get(
                 serverQueue.textChannelId
@@ -24,9 +24,9 @@ const updateQueueMesg = async (channel: TextChannel, serverQueue: IQueue, del?: 
                 .fetch(serverQueue.queueTextMessageId)
                 .catch(err => undefined);
             if (!queueEmbedMessage) {
-                await channel.send(queueEmbed).then(msg => (serverQueue.queueTextMessageId = msg.id));
+                await channel.send({ embeds: [queueEmbed] }).then(msg => (serverQueue.queueTextMessageId = msg.id));
             } else {
-                queueEmbedMessage.edit(queueEmbed);
+                queueEmbedMessage.edit({ embeds: [queueEmbed] });
             }
         }
     } else if (serverQueue.queue.length == 1 || del) {

@@ -5,7 +5,7 @@ interface IQueue extends Document {
     guildId: string;
     playerMessageId: string;
     textChannelId: string;
-    voiceChannelId: string;
+    voiceChannelId: string | undefined;
     queueTextMessageId: string;
     bannerMessageId: string;
     queue: any;

@@ -8,14 +8,15 @@ import {
     MessageEmbed,
     Guild,
     VoiceState,
+    MessageReaction,
 } from 'discord.js';
-import { Shoukaku, ShoukakuSocket } from 'shoukaku';
 import { connect } from 'mongoose';
 import { BlockedUser, Command, UserCooldown } from '../types';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import { Queue, IQueue } from './../models/queue_schema';
 import Player from './../models/player_schema';
+import { ConnectEvent, DisconnectEvent, Node } from 'lavaclient';
 
 import commandLauncher from '../utils/commandLauncher';
 import autoUnblock from '../utils/autoUnblock';
@@ -37,17 +38,10 @@ class Bot extends Client {
     public prefix: string = process.env.PREFIX || '';
     public cooldowns = new Collection<string, Map<string, UserCooldown>>();
     public blockedUsers: Array<BlockedUser> = [];
-    private ShoukakuOptions = {
-        moveOnDisconnect: false,
-        resumable: false,
-        resumableTimeout: 30,
-        reconnectTries: 2,
-        restTimeout: 10000,
-    };
-    public shoukaku: Shoukaku;
-    public node!: ShoukakuSocket;
 
-    public constructor(options?: ClientOptions) {
+    public lavalink!: Node;
+
+    public constructor(options: ClientOptions) {
         super(options);
         const discordToken = process.env.DISCORD_TOKEN;
         const dbConnectionString = process.env.DB_CONNECTION;
@@ -74,25 +68,9 @@ class Bot extends Client {
         this.lavalinkHost = lavalinkHost;
         this.lavalinkPort = parseInt(lavalinkPort);
         this.lavalinkPass = lavalinkPass;
-
-        const lavalinkServer = [
-            { name: 'shz-remote', host: this.lavalinkHost, port: this.lavalinkPort, auth: this.lavalinkPass },
-        ];
-        this.shoukaku = new Shoukaku(this, lavalinkServer, this.ShoukakuOptions);
-        this.shoukaku.on('ready', name => {
-            console.log(`Lavalink ${name}: Ready!`);
-            this.node = this.shoukaku.getNode();
-        });
-        this.shoukaku.on('error', (name, error) => console.error(`Lavalink ${name}: Error Caught,`, error));
-        this.shoukaku.on('close', (name, code, reason) =>
-            console.warn(`Lavalink ${name}: Closed, Code ${code}, Reason ${reason || 'No reason'}`)
-        );
-        this.shoukaku.on('disconnected', (name, reason) =>
-            console.warn(`Lavalink ${name}: Disconnected, Reason ${reason || 'No reason'}`)
-        );
     }
     isPlayerActive(guildId: string) {
-        const player = this.shoukaku.getPlayer(guildId);
+        const player = this.lavalink.players.get(guildId);
         if (player) {
             return true;
         } else {
@@ -100,24 +78,42 @@ class Bot extends Client {
         }
     }
     getPlayer(guildId: string) {
-        return this.shoukaku.getPlayer(guildId);
+        return this.lavalink.players.get(guildId);
     }
 
-    private async _dbConnect() {
-        await connect(this.dbConnectionString, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        })
+    private async dbConnect() {
+        await connect(this.dbConnectionString)
             .then(() => {
-                console.log('Database is connected');
+                console.log('>>>>>Database is connected');
             })
             .catch(err => {
                 console.log(err);
             });
     }
-    private _setupClientEvents() {
+    private setupLavalink() {
+        this.lavalink = new Node({
+            connection: { host: this.lavalinkHost, port: this.lavalinkPort, password: this.lavalinkPass },
+            sendGatewayPayload: (id, payload) => this.guilds.cache.get(id)?.shard?.send(payload),
+        });
+
+        this.lavalink.connect(this.user!.id);
+
+        this.ws.on('VOICE_SERVER_UPDATE', data => this.lavalink.handleVoiceUpdate(data));
+        this.ws.on('VOICE_STATE_UPDATE', data => this.lavalink.handleVoiceUpdate(data));
+
+        this.lavalink.on('connect', (node: ConnectEvent) => {
+            console.log('>>>>>Lavalink connection established', node);
+        });
+        this.lavalink.on('disconnect', (res: DisconnectEvent) => {
+            console.log('>>>>>Lavalink connection lost', res);
+        });
+        this.lavalink.on('error', (res: Error) => {
+            console.log('>>>>>Lavalink error occured', res);
+        });
+    }
+    private setupClientEvents() {
         this.on('ready', async () => {
-            console.log('I am ready to pop');
+            console.log(`>>>>>I'm ready to go ${this.user!.tag}`);
             const commandFiles = fs.readdirSync(__dirname + '/../commands').filter(file => {
                 if (file.endsWith('.js')) return file;
                 if (file.endsWith('.ts')) return file;
@@ -137,13 +133,18 @@ class Bot extends Client {
                     }
                 }
             });
+            this.setupLavalink();
             await autoUnblock(this);
-            this.setInterval(() => autoUnblock(this), 1000 * 60 * 10);
+            setInterval(() => autoUnblock(this), 1000 * 60 * 10);
         });
-        this.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
-            if (oldState.channelID === null || typeof oldState.channelID == 'undefined') return;
+        this.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState): Promise<void> => {
+            if (oldState.channelId === null || typeof oldState.channelId == 'undefined') return;
             if (newState.id !== this.user?.id) return;
             if (!newState.channel) {
+                const serverQueue = await Queue.findOne({ guildId: newState.guild.id });
+                if (!serverQueue) return;
+                serverQueue.voiceChannelId = undefined;
+                serverQueue.queue = [];
                 await Queue.updateOne(
                     { guildId: newState.guild.id },
                     {
@@ -151,29 +152,26 @@ class Bot extends Client {
                         queue: [],
                     }
                 );
-                await Queue.findOne({ guildId: newState.guild.id }, async (err: Error, serverQueue: IQueue) => {
-                    if (serverQueue) {
-                        const textChannel: TextChannel | undefined = newState.guild.channels.cache.get(
-                            serverQueue.textChannelId
-                        ) as TextChannel;
-                        if (!textChannel) return;
-                        const playerEmbedMessage: Message | undefined = await textChannel.messages
-                            .fetch(serverQueue.playerMessageId)
-                            .catch(err => undefined);
-                        if (!playerEmbedMessage) return;
-                        playerEmbedMessage.edit(new Player());
+                const textChannel: TextChannel | undefined = newState.guild.channels.cache.get(
+                    serverQueue.textChannelId
+                ) as TextChannel;
+                if (!textChannel) return;
+                const playerEmbedMessage: Message | undefined = await textChannel.messages
+                    .fetch(serverQueue.playerMessageId)
+                    .catch(err => undefined);
+                if (!playerEmbedMessage) return;
+                playerEmbedMessage.edit({ embeds: [new Player()] });
 
-                        const queueEmbedMessage = await textChannel.messages
-                            .fetch(serverQueue.queueTextMessageId)
-                            .catch(err => undefined);
-                        if (!queueEmbedMessage) return;
-                        try {
-                            queueEmbedMessage.delete();
-                        } catch (err) {
-                            console.log(err);
-                        }
-                    }
-                });
+                const queueEmbedMessage = await textChannel.messages
+                    .fetch(serverQueue.queueTextMessageId)
+                    .catch(err => undefined);
+                if (!queueEmbedMessage) return;
+                try {
+                    queueEmbedMessage.delete();
+                } catch (err) {
+                    console.log(err);
+                }
+                await serverQueue.save();
                 const player = this.getPlayer(newState.guild.id);
                 if (!player) return;
                 player.disconnect();
@@ -186,18 +184,19 @@ class Bot extends Client {
 
             // this part is crappy but works, that makes the music play again afterd the bot is moved
             setTimeout(async () => {
-                await player.setPaused(true);
-                setTimeout(async () => await player.setPaused(false), this.ws.ping * 4);
+                await player.pause();
+                setTimeout(async () => await player.resume(), this.ws.ping * 4);
             }, this.ws.ping * 4);
 
             serverQueue.voiceChannelId = newState.channel.id;
-            return await serverQueue.save();
+            await serverQueue.save();
+            return;
         });
 
         this.on('messageReactionAdd', async (reaction, user) => {
-            reactionHandler(this, reaction, user);
+            reactionHandler(this, reaction as MessageReaction, user);
         });
-        this.on('message', async (message: Message) => {
+        this.on('messageCreate', async (message: Message): Promise<void> => {
             if (!this.token) return;
             if (message.author.bot) return;
             if (!message.guild) return;
@@ -207,13 +206,15 @@ class Bot extends Client {
             if (!this.initializedGuilds.includes(message.guild.id)) {
                 if (!this.commands.has(cmd)) return;
                 if (cmd != 'init') {
-                    return message.channel.send(`U have to use ${this.prefix}init first!`);
+                    message.channel.send(`U have to use ${this.prefix}init first!`);
+                    return;
                 }
-                console.log(`"init" command has been run on guild ${message.guild.id} - ${message.guild.name}`);
+                console.log(`[log] "init" command has been run on guild ${message.guild.id} - ${message.guild.name}`);
 
                 const command = this.commands.get(cmd);
                 if (!command) return;
-                return commandLauncher(this, message, command, this.node, args);
+                commandLauncher(this, message, command, args);
+                return;
             } else if (this.initializedGuilds.includes(message.guild.id) && cmd == 'init') {
                 const serverQueue = await Queue.findOne({ guildId: message.guild.id });
                 if (!serverQueue) return;
@@ -221,11 +222,13 @@ class Bot extends Client {
 
                 const doesChannelExist = message.guild.channels.cache.get(textChannelId);
                 if (doesChannelExist) {
-                    return message.reply('You cannot do this, my channel already exists!');
+                    message.reply('You cannot do this, my channel already exists!');
+                    return;
                 } else {
                     const command = this.commands.get(cmd);
                     if (!command) return;
-                    return commandLauncher(this, message, command, this.node, args, true);
+                    commandLauncher(this, message, command, args, true);
+                    return;
                 }
             } else {
                 if (!this.textChannelId.has(message.guild.id)) {
@@ -251,18 +254,18 @@ class Bot extends Client {
                 if (message.content.startsWith(this.prefix)) {
                     const command = this.commands.get(cmd);
                     if (!command) return;
-                    commandLauncher(this, message, command, this.node, args);
+                    commandLauncher(this, message, command, args);
                 } else {
                     const command = this.commands.get('play');
                     if (!command) return;
-                    commandLauncher(this, message, command, this.node, args);
+                    commandLauncher(this, message, command, args);
                 }
             }
         });
         this.on('guildCreate', (guild: Guild) => {
             const infoChannel: TextChannel = guild.channels.cache
                 .filter(channel => channel.permissionsFor(this.user as User)?.has('SEND_MESSAGES') as boolean)
-                .filter(channel => channel.type === 'text')
+                .filter(channel => channel.type === 'GUILD_TEXT')
                 .first() as TextChannel;
             const helloMessage = new MessageEmbed()
                 .setTitle('Helvete notifier')
@@ -271,7 +274,7 @@ class Bot extends Client {
                 );
             if (!infoChannel) return;
             try {
-                infoChannel.send(helloMessage);
+                infoChannel.send({ embeds: [helloMessage] });
             } catch (err) {
                 console.log('missing permissions to send a hello message', err);
             }
@@ -279,8 +282,8 @@ class Bot extends Client {
     }
 
     public start(): Promise<string> {
-        this._dbConnect();
-        this._setupClientEvents();
+        this.dbConnect();
+        this.setupClientEvents();
         return super.login();
     }
 }

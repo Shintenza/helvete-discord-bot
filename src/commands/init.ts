@@ -8,13 +8,13 @@ if (!bannerLink) throw 'you have to set the banner env variable';
 const init: Command = {
     name: 'init',
     cooldown: 5,
-    execute: async (message, args, client, node, optional) => {
+    execute: async (message, args, client, optional) => {
         if (!message.guild) return;
         const guild: Guild = message.guild;
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
         if (!serverQueue || optional) {
             const newlyCreatedChannel = await guild.channels
-                .create('helvete-beats', { type: 'text' })
+                .create('helvete-beats', { type: 'GUILD_TEXT' })
                 .then(channel => {
                     message.channel.send('Channel has been created!');
                     return channel;
@@ -34,7 +34,7 @@ const init: Command = {
                     .send(bannerLink)
                     .then((message: Message) => (newQueue.bannerMessageId = message.id));
                 await newlyCreatedChannel
-                    .send(playerEmbed)
+                    .send({ embeds: [playerEmbed] })
                     .then((message: Message) => (newQueue.playerMessageId = message.id));
                 await newQueue.save();
                 client.initializedGuilds.push(message.guild.id);
@@ -45,7 +45,7 @@ const init: Command = {
                         .send(bannerLink)
                         .then((message: Message) => (serverQueue.bannerMessageId = message.id));
                     await newlyCreatedChannel
-                        .send(playerEmbed)
+                        .send({ embeds: [playerEmbed] })
                         .then((message: Message) => (serverQueue.playerMessageId = message.id));
                     await serverQueue.save();
                 }

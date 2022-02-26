@@ -1,4 +1,5 @@
 import { MessageEmbed } from 'discord.js';
+
 class Player extends MessageEmbed {
     constructor(
         title = 'Helvete music player',

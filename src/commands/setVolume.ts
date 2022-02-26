@@ -37,7 +37,8 @@ const setVolume: Command = {
         // await player.setDistortion({ scale: 100 });
         // await message.channel.send(`Volume has been changed to: ${args[0]}`).then(msg => msg.delete({ timeout: 4000 }));
         // await serverQueue.save();
-        return await message.channel.send('Not supported yet').then(msg => msg.delete({ timeout: 4000 }));
+        return await message.channel.send('Not supported yet')
+            .then(msg => setTimeout(() => msg.delete(), 4000));
     },
 };
 export = setVolume;

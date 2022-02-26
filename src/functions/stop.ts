@@ -45,7 +45,7 @@ const stop = async (textChannel: TextChannel, user: User, client: Client) => {
     serverQueue.queue = [];
     await updateQueueMesg(textChannel, serverQueue, true);
     await serverQueue.save();
-    await player.stopTrack();
+    await player.stop();
 
     return;
 };

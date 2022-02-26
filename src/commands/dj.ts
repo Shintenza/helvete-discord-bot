@@ -26,10 +26,8 @@ const dj: Command = {
         if (!role) {
             await message.guild.roles
                 .create({
-                    data: {
-                        name: 'HelveteDJ',
-                        color: 'BLACK',
-                    },
+                    name: 'HelveteDJ',
+                    color: 'NOT_QUITE_BLACK',
                 })
                 .then(res => (role = res))
                 .catch(err => console.log(err));

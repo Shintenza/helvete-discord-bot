@@ -50,7 +50,7 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
                         .send(
                             `<@${user.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or you'll be blocked`
                         )
-                        .then(msg => msg.delete({ timeout: cooldownTime * 1000 }));
+                        .then(msg => setTimeout(() => msg.delete(), cooldownTime * 1000));
                 }
                 return client.cooldowns.set(
                     reaction.message.guild.id,
@@ -66,7 +66,7 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
                 if (!userCooldown.sentSecondWarn) {
                     reaction.message.channel
                         .send(`<@${user.id}> you have been warned. You are blocked for 30 minutes`)
-                        .then(msg => msg.delete({ timeout: 3000 }));
+                        .then(msg => setTimeout(() => msg.delete(), 3000));
                     const serverQueue = await Queue.findOne({ guildId: reaction.message.guild.id });
                     if (serverQueue) {
                         const blockedUser: BlockedUser = {
@@ -112,19 +112,14 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
 
         if (reaction.message.id != serverQueue.playerMessageId) return;
         if (reaction.emoji.name == '⏹️') {
-            console.log('stop');
             stop(reaction.message.channel as TextChannel, user as User, client);
         } else if (reaction.emoji.name == '⏭️') {
-            console.log('skip');
             skip(reaction.message.channel as TextChannel, user as User, client);
         } else if (reaction.emoji.name == '⏯️') {
-            console.log('pause');
             pause(reaction.message.channel as TextChannel, user as User, client);
         } else if (reaction.emoji.name == '🔀') {
-            console.log('shuffle');
             shuffle(reaction.message.channel as TextChannel, user as User);
         } else if (reaction.emoji.name == '🔄') {
-            console.log('loop');
             loop(reaction.message.channel as TextChannel, user as User, client);
         }
     } catch (err) {
