@@ -1,15 +1,10 @@
 import Client from '../classes/Client';
-import { GuildChannel, Message, MessageEmbed, User } from 'discord.js';
+import { GuildChannel, Message, User, TextChannel } from 'discord.js';
 import { BlockedUser, Command } from '../types';
 import { Queue } from '../models/queue_schema';
+import { errorEmbed } from './infoEmbed';
 
-const commandLauncher = async (
-    client: Client,
-    message: Message,
-    command: Command,
-    args: string[],
-    optional?: any
-) => {
+const commandLauncher = async (client: Client, message: Message, command: Command, args: string[], optional?: any) => {
     if (!message.guild) return;
     if (message.author.bot) return;
     const textChannel = message.channel as GuildChannel;
@@ -31,11 +26,12 @@ const commandLauncher = async (
             if (userCooldown.count >= 1 && userCooldown.count <= 3) {
                 const cooldownTime = Math.floor((userCooldown.date.getTime() - Date.now()) / 1000);
                 if (!userCooldown.sentFirstWarn) {
-                    message.channel
-                        .send(
-                            `<@${message.author.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or you'll be blocked`
-                        )
-                        .then(msg => setTimeout(() => msg.delete(), cooldownTime * 1000));
+                    errorEmbed(
+                        `<@${message.author.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or cipa huj!`,
+                        message.channel as TextChannel,
+                        cooldownTime * 1000
+                    );
+                    await message.channel.send('chuj');
                 }
                 return client.cooldowns.set(
                     message.guild.id,
@@ -47,11 +43,13 @@ const commandLauncher = async (
                 );
             }
             if (userCooldown.count > 3) {
-                console.log('more than 3');
                 if (!userCooldown.sentSecondWarn) {
-                    message.channel
-                        .send(`<@${message.author.id}> you have been warned. You are blocked for 30 minutes`)
-                        .then(msg => setTimeout(() => msg.delete(), 3000));
+                    errorEmbed(
+                        `<@${message.author.id}> you have been warned. You are blocked for 30 minutes!`,
+                        message.channel as TextChannel,
+                        3000
+                    );
+
                     const serverQueue = await Queue.findOne({ guildId: message.guild.id });
                     if (serverQueue) {
                         const blockedUser: BlockedUser = {
@@ -75,7 +73,6 @@ const commandLauncher = async (
             }
         } else {
             if (command.cooldown) {
-                console.log('cooldown set first time');
                 client.cooldowns.set(
                     message.guild.id,
                     new Map().set(`${command.name}_${message.author.id}`, {
@@ -85,7 +82,6 @@ const commandLauncher = async (
                 );
             }
             if (userCooldown && userCooldown.count > 1) {
-                console.log('cleared cooldown');
                 client.cooldowns.set(
                     message.guild.id,
                     new Map().set(`${command.name}_${message.author.id}`, {
@@ -101,9 +97,7 @@ const commandLauncher = async (
         await command.execute(message, args, client);
     } catch (err) {
         console.log(err);
-        return message.channel
-            .send( { embeds: [new MessageEmbed().setTitle('Error!').setDescription(err as string).setColor('RED')]})
-            .then(msg => setTimeout(() => msg.delete(), 10000));
+        return errorEmbed(err as string, message.channel as TextChannel, 10000);
     }
 };
 export default commandLauncher;

@@ -1,6 +1,5 @@
-import { Message, TextChannel, User } from 'discord.js';
+import { TextChannel, User } from 'discord.js';
 import { Queue } from '../models/queue_schema';
-import updateQueueMesg from '../utils/updateQueueMsg';
 import Client from '../classes/Client';
 
 const pause = async (textChannel: TextChannel, user: User, client: Client) => {
@@ -45,11 +44,12 @@ const pause = async (textChannel: TextChannel, user: User, client: Client) => {
     const player = client.getPlayer(textChannel.guild.id);
     if (!player) return;
     serverQueue.isPaused = !serverQueue.isPaused;
-    // if (serverQueue.isPaused) {
-    //     await player.setPaused(true);
-    // } else {
-    //     await player.setPaused(false);
-    // }
+
+    if (serverQueue.isPaused) {
+        await player.pause();
+    } else {
+        await player.resume();
+    }
 
     await serverQueue.save();
     return;

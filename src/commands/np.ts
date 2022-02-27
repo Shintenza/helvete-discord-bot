@@ -1,6 +1,7 @@
 import { Command } from './../types';
-import { MessageEmbed } from 'discord.js';
+import { MessageEmbed, TextChannel} from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
+import { errorEmbed } from '../utils/infoEmbed';
 import durationHandler from '../utils/durationHandler';
 
 const np: Command = {
@@ -9,21 +10,12 @@ const np: Command = {
     execute: async (message, args, client) => {
         if (!message.guild) return;
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
-        if (!serverQueue) {
-            return await message.channel
-                .send('There is nothing in the queue!')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-        if (serverQueue.queue.length === 0) {
-            return await message.channel
-                .send('There is nothing in the queue!')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-        if (!message.guild.me?.voice) {
-            return await message.channel
-                .send('I am not connected to any voice channel!')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
+        if (!serverQueue) 
+            return errorEmbed('There is nothing in the queue', message.channel as TextChannel);
+        if (serverQueue.queue.length === 0) 
+            return errorEmbed('There is nothing in the queue', message.channel as TextChannel);
+        if (!message.guild.me?.voice) 
+            return errorEmbed('I am not connected to any voice channel!', message.channel as TextChannel);
         const numberOfBars: number = 10;
         let barString = '▬'.repeat(numberOfBars);
         const replaceAt = (text: string, index: number, replacement: string) => {

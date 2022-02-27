@@ -14,7 +14,7 @@ import { connect } from 'mongoose';
 import { BlockedUser, Command, UserCooldown } from '../types';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import { Queue, IQueue } from './../models/queue_schema';
+import { Queue } from './../models/queue_schema';
 import Player from './../models/player_schema';
 import { ConnectEvent, DisconnectEvent, Node } from 'lavaclient';
 
@@ -27,6 +27,7 @@ dotenv.config();
 class Bot extends Client {
     public token: string;
     public bannerUrl: string;
+    public playerUrl: string;
     private dbConnectionString: string;
     private lavalinkHost: string;
     private lavalinkPort: number;
@@ -46,6 +47,7 @@ class Bot extends Client {
         const discordToken = process.env.DISCORD_TOKEN;
         const dbConnectionString = process.env.DB_CONNECTION;
         const bannerLink = process.env.BANNER_LINK;
+        const playerUrl = process.env.PLAYER_URL;
         const prefix = process.env.PREFIX;
         const lavalinkHost = process.env.LAVALINK_HOST;
         const lavalinkPort = process.env.LAVALINK_PORT;
@@ -55,29 +57,32 @@ class Bot extends Client {
             !discordToken ||
             !dbConnectionString ||
             !bannerLink ||
+            !playerUrl ||
             !prefix ||
             !lavalinkHost ||
             !lavalinkPort ||
             !lavalinkPass
         )
             throw 'Missing env vars. Check .env.example';
+
         this.token = discordToken;
         this.dbConnectionString = dbConnectionString;
         this.bannerUrl = bannerLink;
+        this.playerUrl = playerUrl;
         this.prefix = prefix;
         this.lavalinkHost = lavalinkHost;
         this.lavalinkPort = parseInt(lavalinkPort);
         this.lavalinkPass = lavalinkPass;
     }
-    isPlayerActive(guildId: string) {
+    public isPlayerActive(guildId: string) {
         const player = this.lavalink.players.get(guildId);
-        if (player) {
+        
+        if (player) 
             return true;
-        } else {
+        else 
             return false;
-        }
     }
-    getPlayer(guildId: string) {
+    public getPlayer(guildId: string) {
         return this.lavalink.players.get(guildId);
     }
 
@@ -87,7 +92,7 @@ class Bot extends Client {
                 console.log('>>>>>Database is connected');
             })
             .catch(err => {
-                console.log(err);
+                console.log('>>>>>Database connection error',err);
             });
     }
     private setupLavalink() {
@@ -114,6 +119,7 @@ class Bot extends Client {
     private setupClientEvents() {
         this.on('ready', async () => {
             console.log(`>>>>>I'm ready to go ${this.user!.tag}`);
+        
             const commandFiles = fs.readdirSync(__dirname + '/../commands').filter(file => {
                 if (file.endsWith('.js')) return file;
                 if (file.endsWith('.ts')) return file;
@@ -122,6 +128,7 @@ class Bot extends Client {
                 const command = await import(`./../commands/${file}`);
                 this.commands.set(command.name, command);
             }
+
             this.guilds.cache.forEach(async guild => {
                 const serverQueue = await Queue.findOne({ guildId: guild.id });
                 if (serverQueue) {
@@ -133,10 +140,13 @@ class Bot extends Client {
                     }
                 }
             });
+
             this.setupLavalink();
+
             await autoUnblock(this);
             setInterval(() => autoUnblock(this), 1000 * 60 * 10);
         });
+
         this.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState): Promise<void> => {
             if (oldState.channelId === null || typeof oldState.channelId == 'undefined') return;
             if (newState.id !== this.user?.id) return;
@@ -262,6 +272,7 @@ class Bot extends Client {
                 }
             }
         });
+
         this.on('guildCreate', (guild: Guild) => {
             const infoChannel: TextChannel = guild.channels.cache
                 .filter(channel => channel.permissionsFor(this.user as User)?.has('SEND_MESSAGES') as boolean)
@@ -276,13 +287,13 @@ class Bot extends Client {
             try {
                 infoChannel.send({ embeds: [helloMessage] });
             } catch (err) {
-                console.log('missing permissions to send a hello message', err);
+                console.log('[log] missing permissions to send a hello message', err);
             }
         });
     }
 
-    public start(): Promise<string> {
-        this.dbConnect();
+    public async start(): Promise<string> {
+        await this.dbConnect();
         this.setupClientEvents();
         return super.login();
     }

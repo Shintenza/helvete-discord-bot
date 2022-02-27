@@ -7,19 +7,20 @@ import pause from './../functions/pause';
 import loop from './../functions/loop';
 import Client from './../classes/Client';
 import { BlockedUser } from '../types';
+import { errorEmbed } from './infoEmbed';
 
 const reactionHandler = async (client: Client, reaction: MessageReaction, user: User | PartialUser) => {
     if (user.bot) return;
     if (!reaction.message.guild) return;
-    // TODO remove thaht db call 
+    // TODO remove thaht db call
     const serverQueue = await Queue.findOne({
         guildId: reaction.message.guild.id,
     });
     if (!serverQueue) return;
     const isBlocked = client.blockedUsers.filter(blockedUser => blockedUser.id === user.id);
-    
+
     const validTextChannel = client.textChannelId.get(reaction.message.guild.id);
-    if(!validTextChannel) return;
+    if (!validTextChannel) return;
     if (isBlocked.length >= 1 && reaction.message.channel.id === validTextChannel.textChannel) {
         try {
             reaction.users.remove(user as User);
@@ -28,13 +29,13 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
         }
         return;
     }
-    if(reaction.message.channel.id === validTextChannel.textChannel) {
+    if (reaction.message.channel.id === validTextChannel.textChannel) {
         try {
-           reaction.users.remove(user as User);
+            reaction.users.remove(user as User);
         } catch (err) {
             console.log(err);
         }
-    } else return
+    } else return;
 
     const guildCooldown = client.cooldowns.get(reaction.message.guild.id);
     const userCooldown = guildCooldown ? guildCooldown.get(`reaction_${user.id}`) : undefined;
@@ -46,11 +47,13 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
             const cooldownTime = Math.floor((userCooldown.date.getTime() - Date.now()) / 1000);
             if (userCooldown.count >= 1 && userCooldown.count <= 3) {
                 if (!userCooldown.sentFirstWarn) {
-                    reaction.message.channel
-                        .send(
-                            `<@${user.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or you'll be blocked`
-                        )
-                        .then(msg => setTimeout(() => msg.delete(), cooldownTime * 1000));
+                    errorEmbed(
+                        `<@${
+                            reaction.message.author!.id
+                        }> you are on ${cooldownTime} seconds cooldown! Do not spam or you wll be blocked!`,
+                        reaction.message.channel as TextChannel,
+                        cooldownTime * 1000
+                    );
                 }
                 return client.cooldowns.set(
                     reaction.message.guild.id,
@@ -62,11 +65,12 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
                 );
             }
             if (userCooldown.count > 3) {
-                console.log('more than 3');
                 if (!userCooldown.sentSecondWarn) {
-                    reaction.message.channel
-                        .send(`<@${user.id}> you have been warned. You are blocked for 30 minutes`)
-                        .then(msg => setTimeout(() => msg.delete(), 3000));
+                    errorEmbed(
+                        `<@${reaction.message.author!.id}> you have been warned. You are blocked for 30 minutes!`,
+                        reaction.message.channel as TextChannel,
+                        3000
+                    );
                     const serverQueue = await Queue.findOne({ guildId: reaction.message.guild.id });
                     if (serverQueue) {
                         const blockedUser: BlockedUser = {
@@ -89,7 +93,6 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
                 );
             }
         } else {
-            console.log('cooldown set first time');
             client.cooldowns.set(
                 reaction.message.guild.id,
                 new Map().set(`reaction_${user.id}`, {
@@ -99,7 +102,6 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
             );
 
             if (userCooldown && userCooldown.count > 1) {
-                console.log('cleared cooldown');
                 client.cooldowns.set(
                     reaction.message.guild.id,
                     new Map().set(`reaction_${user.id}`, {

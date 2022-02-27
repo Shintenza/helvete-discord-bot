@@ -2,6 +2,7 @@ import { Command } from './../types';
 import { Queue } from './../models/queue_schema';
 import { Message, TextChannel } from 'discord.js';
 import updateQueueMsg from '../utils/updateQueueMsg';
+import { errorEmbed } from '../utils/infoEmbed';
 
 const remove: Command = {
     name: 'remove',
@@ -10,42 +11,25 @@ const remove: Command = {
         console.log(args);
         if (!message.guild) return;
         const serverQueue = await Queue.findOne({ guildId: message.guild.id });
+
         if (!serverQueue) return;
         if (serverQueue.textChannelId !== message.channel.id) return;
         const member = await message.guild.members.fetch(message.author);
         if (!member) return;
         if (!member?.voice.channel)
-            return await message.channel
-                .send('You have to join a voice channel in order to do this')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        if (serverQueue.voiceChannelId) {
-            if (member.voice.channel?.id !== serverQueue.voiceChannelId) {
-                return await message.channel
-                    .send('You have to be in the same voice channel')
-                    .then(msg => setTimeout(() => msg.delete(), 4000));
-            }
-        }
-        if (args[0] == '0') {
-            return await message.channel
-                .send('Wrong number of track')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-        if (!serverQueue || serverQueue.queue.length <= 1) {
-            return await message.channel
-                .send('There is nothing to remove')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-        if (!serverQueue.queue[args[0]]) {
-            return await message.channel
-                .send('Wrong number of track')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
+            return errorEmbed("You have to join a voice channel in order to do this", message.channel as TextChannel);
+        if (serverQueue.voiceChannelId) 
+            if (member.voice.channel?.id !== serverQueue.voiceChannelId) 
+                return errorEmbed("You have to be in the same voice channel", message.channel as TextChannel);
+        if (args[0] == '0') 
+            return errorEmbed("Wrong number of track", message.channel as TextChannel);
+        if (!serverQueue || serverQueue.queue.length <= 1) 
+            return errorEmbed("There is nothing to remove", message.channel as TextChannel);
+        if (!serverQueue.queue[args[0]]) 
+            return errorEmbed("Wrong number of track", message.channel as TextChannel);
         const player = client.getPlayer(message.guild.id);
-        if (!player || !player.track) {
-            return await message.channel
-                .send('There is nothing playing right now')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
+        if (!player || !player.track) 
+            return errorEmbed("There is nothing playing right now", message.channel as TextChannel);
 
         if (serverQueue.queue.length == 1) return;
         message.channel

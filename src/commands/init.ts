@@ -2,6 +2,7 @@ import { Command } from './../types';
 import { Guild, Message, MessageEmbed, TextChannel } from 'discord.js';
 import { Queue, IQueue } from './../models/queue_schema';
 import Player from '../models/player_schema';
+import { errorEmbed, successEmbed } from '../utils/infoEmbed';
 const bannerLink = process.env.BANNER_LINK;
 if (!bannerLink) throw 'you have to set the banner env variable';
 
@@ -16,11 +17,11 @@ const init: Command = {
             const newlyCreatedChannel = await guild.channels
                 .create('helvete-beats', { type: 'GUILD_TEXT' })
                 .then(channel => {
-                    message.channel.send('Channel has been created!');
+                    successEmbed('Channel has been created!', message.channel as TextChannel);
                     return channel;
                 })
                 .catch(err => {
-                    message.channel.send('I was unable to create a text channel');
+                    errorEmbed('I was unable to create a text channel', message.channel as TextChannel);
                 });
             if (!newlyCreatedChannel) return message.reply('I was unable to create my text channel');
 

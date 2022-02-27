@@ -6,7 +6,7 @@ import { getPreview, getTracks } from 'spotify-url-info';
 import updateQueue from '../utils/updateQueue';
 import play from './../utils/play';
 import setPlayerEvents from '../utils/setPlayerEvents';
-import { Player } from 'lavaclient';
+import { errorEmbed } from '../utils/infoEmbed';
 
 const initPlay: Command = {
     name: 'play',
@@ -22,24 +22,16 @@ const initPlay: Command = {
         if (message.channel.id !== serverQueue.textChannelId) return;
 
         if (!message.member?.voice.channel)
-            return await message.channel
-                .send('You have to join a voice channel in order to do this')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
+            return errorEmbed("You have to join a voice channel in order to do this", message.channel as TextChannel);
 
         const voiceChannel = message.member.voice.channel;
         const permissions = voiceChannel.permissionsFor(message.client.user as User);
         if (!permissions!.has('CONNECT') || !permissions!.has('SPEAK')) {
-            const errEmbed: MessageEmbed = new MessageEmbed().setDescription(
-                'I need the permissions to join and speak in your voice channel!'
-            );
-            return await message.channel.send({embeds: [errEmbed]}).then(msg => setTimeout(() => msg.delete(), 4000));
+            return errorEmbed("I need the permissions to join and speak in your voice channel!", message.channel as TextChannel);
         }
         if (serverQueue.voiceChannelId && message.guild.me?.voice.channel) {
-            if (message.member.voice.channel.id !== serverQueue.voiceChannelId) {
-                return await message.channel
-                    .send('You have to be in the same voice channel')
-                    .then(msg => setTimeout(() => msg.delete(), 4000));
-            }
+            if (message.member.voice.channel.id !== serverQueue.voiceChannelId) 
+                return errorEmbed("You have to be in the same voice channel", message.channel as TextChannel);
         }
 
         if (!serverQueue.bannerMessageId) {
@@ -74,12 +66,9 @@ const initPlay: Command = {
             });
         } else if (message.content.includes('open.spotify.com/album')) {
             const spotifyTracks = await getTracks(message.content.split(' ')[0]).catch(_err => undefined);
-            if (!spotifyTracks) {
-                return message.channel
-                    .send('Spotify album/playlist not found')
-                    .then(msg => setTimeout(()=>msg.delete(), 4000))
-                    .catch(err => console.log(err));
-            }
+            if (!spotifyTracks) 
+                return errorEmbed("Spotify album/playlist not found", message.channel as TextChannel);
+            
             spotifyTracks.map(track => {
                 const songToResolve = {
                     title: track.name,
@@ -92,12 +81,8 @@ const initPlay: Command = {
             });
         } else if (message.content.includes('open.spotify.com/track')) {
             const spotifyTrack = await getPreview(message.content.split(' ')[0]).catch(_err => undefined);
-            if (!spotifyTrack) {
-                return message.channel
-                    .send('Spotify song not found')
-                    .then(msg => setTimeout(()=>msg.delete(), 4000))
-                    .catch(err => console.log(err));
-            }
+            if (!spotifyTrack) 
+                return errorEmbed("Spotify song not found", message.channel as TextChannel);
             const searchString = `${spotifyTrack.title} ${spotifyTrack.artist}`;
             const data = await client.lavalink.rest.loadTracks(`ytsearch:${searchString}`);
             if (!data) return;
