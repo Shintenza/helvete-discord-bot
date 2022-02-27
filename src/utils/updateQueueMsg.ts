@@ -12,7 +12,7 @@ const updateQueueMesg = async (channel: TextChannel, serverQueue: IQueue, del?: 
         });
         const queueEmbed = new MessageEmbed().setTitle('__Queue:__').setDescription(songs);
         if (serverQueue.queue.length > 30) {
-            queueEmbed.setFooter(`And ${serverQueue.queue.length - 30} more...`);
+            queueEmbed.setFooter({text: `And ${serverQueue.queue.length - 30} more...`})
         }
         if (!serverQueue.queueTextMessageId) {
             await channel.send({ embeds: [queueEmbed] }).then(msg => (serverQueue.queueTextMessageId = msg.id));

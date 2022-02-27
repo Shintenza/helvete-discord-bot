@@ -74,7 +74,7 @@ const updatePlayer = async (client: Client, serverQueue: IQueue): Promise<void> 
         .setImage(serverQueue.queue[0].thumbnail)
         .setTitle(serverQueue.queue[0].title)
         .setDescription(`Uploaded by ${serverQueue.queue[0].author}`)
-        .setFooter(`Requested by ${member.user.tag}`, `${member.user.displayAvatarURL()}`);
+        .setFooter({text: `Requested by ${member.user.tag}`, iconURL: `${member.user.displayAvatarURL()}`})
     playerEmbedMessage.edit({ embeds: [playerEmbed] });
     playerEmbedMessage.react('⏯️');
     playerEmbedMessage.react('⏹️');

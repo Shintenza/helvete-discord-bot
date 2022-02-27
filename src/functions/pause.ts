@@ -1,23 +1,18 @@
 import { TextChannel, User } from 'discord.js';
 import { Queue } from '../models/queue_schema';
 import Client from '../classes/Client';
+import { errorEmbed, informEmbed } from '../utils/infoEmbed';
 
 const pause = async (textChannel: TextChannel, user: User, client: Client) => {
     const serverQueue = await Queue.findOne({ guildId: textChannel.guild.id });
-    if (!serverQueue) {
-        return textChannel.send('Guild not found').then(msg => setTimeout(() => msg.delete(), 4000));
-    }
+    if (!serverQueue) return errorEmbed('Guild is missing in the database!', textChannel);
     const member = await textChannel.guild.members.fetch(user);
     if (!member) return;
 
     if (!member?.voice.channel) return;
-    if (serverQueue.voiceChannelId) {
-        if (member.voice.channel?.id !== serverQueue.voiceChannelId) {
-            return await textChannel
-                .send('You have to be in the same voice channel')
-                .then(msg => setTimeout(() => msg.delete(), 4000));
-        }
-    }
+    if (serverQueue.voiceChannelId)
+        if (member.voice.channel?.id !== serverQueue.voiceChannelId)
+            return errorEmbed('You have to be in the same voice channel!', textChannel);
 
     const role = textChannel.guild.roles.cache.find(role => role.name == 'HelveteDJ');
     let isAllowed: boolean = false;
@@ -33,11 +28,7 @@ const pause = async (textChannel: TextChannel, user: User, client: Client) => {
             isAllowed = true;
         }
     }
-    if (!isAllowed) {
-        return await textChannel
-            .send('You are not allowed to do this!')
-            .then(msg => setTimeout(() => msg.delete(), 4000));
-    }
+    if (!isAllowed) return errorEmbed('You are not allowed to do this!', textChannel);
 
     if (serverQueue.queue.length === 0) return;
 
@@ -46,11 +37,11 @@ const pause = async (textChannel: TextChannel, user: User, client: Client) => {
     serverQueue.isPaused = !serverQueue.isPaused;
 
     if (serverQueue.isPaused) {
-        await player.pause();
-    } else {
         await player.resume();
+    } else {
+        await player.pause();
     }
-
+    informEmbed(`${serverQueue.isPaused ? "Music has been resumed": "Music has been paused"}`, textChannel);
     await serverQueue.save();
     return;
 };

@@ -48,9 +48,7 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
             if (userCooldown.count >= 1 && userCooldown.count <= 3) {
                 if (!userCooldown.sentFirstWarn) {
                     errorEmbed(
-                        `<@${
-                            reaction.message.author!.id
-                        }> you are on ${cooldownTime} seconds cooldown! Do not spam or you wll be blocked!`,
+                        `<@${user.id}> you are on ${cooldownTime} seconds cooldown! Do not spam or you wll be blocked!`,
                         reaction.message.channel as TextChannel,
                         cooldownTime * 1000
                     );
@@ -67,7 +65,7 @@ const reactionHandler = async (client: Client, reaction: MessageReaction, user: 
             if (userCooldown.count > 3) {
                 if (!userCooldown.sentSecondWarn) {
                     errorEmbed(
-                        `<@${reaction.message.author!.id}> you have been warned. You are blocked for 30 minutes!`,
+                        `<@${user.id}> you have been warned. You are blocked for 30 minutes!`,
                         reaction.message.channel as TextChannel,
                         3000
                     );
